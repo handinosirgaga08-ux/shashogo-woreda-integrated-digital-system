@@ -8,6 +8,7 @@ RUN npm install --omit=dev
 
 COPY . .
 
-EXPOSE 5000
+# Render supplies the actual PORT at runtime.
+EXPOSE 10000
 
 CMD ["npm", "start"]

@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SWIDS Admin Panel</title>
+  <style>
+    :root { --bg:#f4f6f8; --card:#fff; --text:#17202a; --muted:#667085; --primary:#1769aa; --danger:#b42318; --border:#d0d5dd; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:system-ui,-apple-system,Segoe UI,sans-serif; background:var(--bg); color:var(--text); }
+    header { background:#101828; color:white; padding:16px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    header h1 { margin:0; font-size:20px; }
+    main { max-width:1200px; margin:24px auto; padding:0 16px; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; box-shadow:0 2px 8px #00000008; margin-bottom:18px; }
+    .hidden { display:none !important; }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+    label { display:block; font-size:14px; font-weight:600; margin-bottom:6px; }
+    input, select, textarea { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font:inherit; }
+    textarea { min-height:90px; resize:vertical; }
+    button { border:0; border-radius:8px; padding:10px 14px; cursor:pointer; font-weight:600; }
+    .primary { background:var(--primary); color:white; }
+    .secondary { background:#eaecf0; color:#344054; }
+    .danger { background:#fee4e2; color:var(--danger); }
+    .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+    .toolbar { display:flex; gap:10px; justify-content:space-between; align-items:center; flex-wrap:wrap; }
+    table { width:100%; border-collapse:collapse; margin-top:12px; }
+    th, td { text-align:left; padding:11px 8px; border-bottom:1px solid #eaecf0; vertical-align:top; }
+    th { font-size:13px; color:#475467; }
+    .status { padding:4px 8px; border-radius:999px; background:#ecfdf3; color:#027a48; font-size:12px; }
+    .error { color:var(--danger); margin-top:8px; }
+    .muted { color:var(--muted); }
+    @media(max-width:700px) { .grid { grid-template-columns:1fr; } table { display:block; overflow:auto; white-space:nowrap; } }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Shashogo Woreda Integrated Digital System</h1>
+  <button id="logoutBtn" class="secondary hidden">Logout</button>
+</header>
+
+<main>
+  <section id="loginCard" class="card">
+    <h2>Administrator login</h2>
+    <p class="muted">Sign in to manage SWIDS records.</p>
+    <form id="loginForm">
+      <label>Email<input id="email" type="email" required autocomplete="username"></label>
+      <label>Password<input id="password" type="password" required autocomplete="current-password"></label>
+      <div class="actions"><button class="primary">Sign in</button></div>
+      <div id="loginError" class="error"></div>
+    </form>
+  </section>
+
+  <section id="app" class="hidden">
+    <div class="card">
+      <div class="toolbar">
+        <div>
+          <h2 id="formTitle">Add record</h2>
+          <p class="muted">Create and update local administrative records.</p>
+        </div>
+        <button id="newBtn" class="secondary">New record</button>
+      </div>
+
+      <form id="recordForm">
+        <input id="recordId" type="hidden">
+        <div class="grid">
+          <label>Name *<input id="name" required maxlength="120"></label>
+          <label>Category *<input id="category" required maxlength="80" placeholder="e.g. Citizen, Business"></label>
+          <label>Kebele<input id="kebele" maxlength="100"></label>
+          <label>Phone<input id="phone" maxlength="40"></label>
+          <label>Status
+            <select id="status">
+              <option>Active</option>
+              <option>Pending</option>
+              <option>Inactive</option>
+            </select>
+          </label>
+        </div>
+        <label style="margin-top:14px">Notes<textarea id="notes" maxlength="1000"></textarea></label>
+        <div class="actions">
+          <button class="primary">Save record</button>
+          <button type="button" id="cancelBtn" class="secondary">Clear</button>
+        </div>
+        <div id="formError" class="error"></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="toolbar">
+        <div>
+          <h2>Records</h2>
+          <span id="count" class="muted"></span>
+        </div>
+        <input id="search" style="max-width:300px" placeholder="Search records...">
+      </div>
+      <div id="tableWrap"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+let records = [];
+
+async function api(url, options = {}) {
+  const res = await fetch(url, {
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    ...options
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Request failed");
+  return data;
+}
+
+function setLoggedIn(user) {
+  $("loginCard").classList.toggle("hidden", !!user);
+  $("app").classList.toggle("hidden", !user);
+  $("logoutBtn").classList.toggle("hidden", !user);
+}
+
+async function checkAuth() {
+  try {
+    const data = await api("/api/me");
+    setLoggedIn(data.user);
+    await loadRecords();
+  } catch {
+    setLoggedIn(null);
+  }
+}
+
+$("loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  $("loginError").textContent = "";
+  try {
+    const data = await api("/api/login", {
+      method: "POST",
+      body: JSON.stringify({ email: $("email").value, password: $("password").value })
+    });
+    setLoggedIn(data.user);
+    $("password").value = "";
+    await loadRecords();
+  } catch (err) {
+    $("loginError").textContent = err.message;
+  }
+});
+
+$("logoutBtn").addEventListener("click", async () => {
+  await api("/api/logout", { method:"POST" }).catch(() => {});
+  setLoggedIn(null);
+});
+
+async function loadRecords() {
+  try {
+    const q = $("search").value.trim();
+    const data = await api("/api/records" + (q ? "?q=" + encodeURIComponent(q) : ""));
+    records = data.records;
+    renderRecords();
+  } catch (err) {
+    if (err.message.includes("Authentication")) setLoggedIn(null);
+    alert(err.message);
+  }
+}
+
+function renderRecords() {
+  $("count").textContent = `${records.length} record${records.length === 1 ? "" : "s"}`;
+  if (!records.length) {
+    $("tableWrap").innerHTML = '<p class="muted">No records found.</p>';
+    return;
+  }
+
+  $("tableWrap").innerHTML = `
+    <table>
+      <thead><tr><th>Name</th><th>Category</th><th>Kebele</th><th>Phone</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>${records.map(r => `
+        <tr>
+          <td>${esc(r.name)}</td>
+          <td>${esc(r.category)}</td>
+          <td>${esc(r.kebele)}</td>
+          <td>${esc(r.phone)}</td>
+          <td><span class="status">${esc(r.status)}</span></td>
+          <td>
+            <button class="secondary" onclick="editRecord('${r.id}')">Edit</button>
+            <button class="danger" onclick="deleteRecord('${r.id}')">Delete</button>
+          </td>
+        </tr>`).join("")}</tbody>
+    </table>`;
+}
+
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;"
+  }[c]));
+}
+
+window.editRecord = id => {
+  const r = records.find(x => x.id === id);
+  if (!r) return;
+  $("recordId").value = r.id;
+  $("name").value = r.name;
+  $("category").value = r.category;
+  $("kebele").value = r.kebele;
+  $("phone").value = r.phone;
+  $("status").value = r.status;
+  $("notes").value = r.notes;
+  $("formTitle").textContent = "Edit record";
+  window.scrollTo({top:0, behavior:"smooth"});
+};
+
+window.deleteRecord = async id => {
+  const r = records.find(x => x.id === id);
+  if (!r || !confirm(`Delete "${r.name}"?`)) return;
+  try {
+    await api("/api/records/" + encodeURIComponent(id), { method:"DELETE" });
+    await loadRecords();
+    clearForm();
+  } catch (err) { alert(err.message); }
+};
+
+function clearForm() {
+  $("recordForm").reset();
+  $("recordId").value = "";
+  $("status").value = "Active";
+  $("formTitle").textContent = "Add record";
+  $("formError").textContent = "";
+}
+
+$("recordForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  $("formError").textContent = "";
+
+  const id = $("recordId").value;
+  const payload = {
+    name: $("name").value,
+    category: $("category").value,
+    kebele: $("kebele").value,
+    phone: $("phone").value,
+    status: $("status").value,
+    notes: $("notes").value
+  };
+
+  try {
+    await api(id ? "/api/records/" + encodeURIComponent(id) : "/api/records", {
+      method: id ? "PUT" : "POST",
+      body: JSON.stringify(payload)
+    });
+    clearForm();
+    await loadRecords();
+  } catch (err) {
+    $("formError").textContent = err.message;
+  }
+});
+
+$("cancelBtn").addEventListener("click", clearForm);
+$("newBtn").addEventListener("click", clearForm);
+$("search").addEventListener("input", () => loadRecords());
+
+checkAuth();
+</script>
+</body>
+</html>

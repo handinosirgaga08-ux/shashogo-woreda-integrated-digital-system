@@ -101,16 +101,26 @@
 const $ = id => document.getElementById(id);
 let records = [];
 
+const API_BASE = "https://swids-backend.onrender.com";
+
 async function api(url, options = {}) {
-  const res = await fetch(url, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-    ...options
+  const res = await fetch(API_BASE + url, {
+    ...options,
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    }
   });
+
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "Request failed");
+
+  if (!res.ok) {
+    throw new Error(data.error || "Request failed");
+  }
+
   return data;
 }
-
 function setLoggedIn(user) {
   $("loginCard").classList.toggle("hidden", !!user);
   $("app").classList.toggle("hidden", !user);

@@ -101,7 +101,7 @@
 const $ = id => document.getElementById(id);
 let records = [];
 
-const const API_BASE = "https://shashogo-backend.onrender.com";
+const API_BASE = "https://shashogo-backend.onrender.com";
 async function api(url, options = {}) {
   const res = await fetch(API_BASE + url, {
     ...options,

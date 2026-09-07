@@ -215,10 +215,10 @@ app.delete("/api/records/:id", requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "admin_panel.html"));
+app.get("/admin", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
-app.listen(PORT, () => {
-  console.log(`SWIDS running on http://localhost:${PORT}`);
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });

@@ -7,7 +7,21 @@ const rateLimit = require("express-rate-limit");
 const bcrypt = require("bcryptjs");
 require("dotenv").config();
 
-const app = express();
+const app = express();app.use((req, res, next) => {
+  res.header(
+    "Access-Control-Allow-Origin",
+    "https://shashogo-woreda-frontend.onrender.com"
+  );
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
 const PORT = Number(process.env.PORT || 5000);
 const DATA_FILE = path.resolve(process.env.DATA_FILE || "./data/records.json");
 

@@ -7,7 +7,8 @@ const rateLimit = require("express-rate-limit");
 const bcrypt = require("bcryptjs");
 require("dotenv").config();
 
-const app = express();app.use((req, res, next) => {
+const app = express();
+app.use((req, res, next) => {
   res.header(
     "Access-Control-Allow-Origin",
     "https://shashogo-woreda-frontend.onrender.com"
@@ -68,7 +69,7 @@ function makeSessionToken(email) {
 
 function readSession(req) {
   const raw = req.headers.cookie || "";
-  const match = raw.match(/(?:^|;\\s*)swids_session=([^;]+)/);
+  const match = raw.match(/(?:^|;\s*)swids_session=([^;]+)/);
   if (!match) return null;
 
   const [payload, signature] = decodeURIComponent(match[1]).split(".");
@@ -149,7 +150,7 @@ app.post("/api/login", loginLimiter, async (req, res) => {
   const token = makeSessionToken(email);
   res.setHeader(
     "Set-Cookie",
-    `swids_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=28800${process.env.NODE_ENV === "production" ? "; Secure" : ""}`
+    `swids_session=${encodeURIComponent(token)}; HttpOnly; SameSite=None; Secure; Path=/; Max-Age=28800`
   );
   res.json({ ok: true, user: { email } });
 });
@@ -157,7 +158,7 @@ app.post("/api/login", loginLimiter, async (req, res) => {
 app.post("/api/logout", (req, res) => {
   res.setHeader(
     "Set-Cookie",
-    "swids_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"
+    "swids_session=; HttpOnly; SameSite=None; Secure; Path=/; Max-Age=0"
   );
   res.json({ ok: true });
 });
@@ -235,6 +236,7 @@ app.get("/admin", (req, res) => {
 
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
-});const server = app.listen(PORT, "0.0.0.0", () => {
+});
+const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });

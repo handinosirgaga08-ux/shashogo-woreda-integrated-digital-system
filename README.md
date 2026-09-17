@@ -47,7 +47,7 @@ The Shashogo Woreda Integrated Digital System is a unified e-government platform
 - npm
 - Docker (optional, for containerized deployment)
 
-### Installation
+
 ## Installation
 
 ```bash

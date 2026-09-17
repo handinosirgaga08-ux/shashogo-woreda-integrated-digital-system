@@ -30,6 +30,8 @@ The Shashogo Woreda Integrated Digital System is a unified e-government platform
 
 ## ## Technology Stack
 
+## Technology Stack
+
 - **Frontend:** HTML, CSS, JavaScript
 - **Backend:** Node.js (Express-style server via `server.js`)
 - **Containerization:** Docker
@@ -39,11 +41,19 @@ The Shashogo Woreda Integrated Digital System is a unified e-government platform
 ## Getting Started
 
 ### Prerequisites
-- _(list required software, e.g. Node.js, Python, etc.)_
+## Prerequisites
+
+- Node.js (v18 or higher)
+- npm
+- Docker (optional, for containerized deployment)
 
 ### Installation
+## Installation
+
 ```bash
-git clone https://github.com/<your-username>/shashogo-woreda-integrated-digital-system.git
+git clone https://github.com/handinosirgaga08-ux/shashogo-woreda-integrated-digital-system.git
 cd shashogo-woreda-integrated-digital-system
 # install dependencies
+npm install
 # run the project
+node server.js

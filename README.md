@@ -28,7 +28,7 @@ The Shashogo Woreda Integrated Digital System is a unified e-government platform
 - Citizens of Shashogo Woreda
 - Regional oversight bodies
 
-## ## Technology Stack
+
 
 ## Technology Stack
 
@@ -40,7 +40,7 @@ The Shashogo Woreda Integrated Digital System is a unified e-government platform
 
 ## Getting Started
 
-### Prerequisites
+
 ## Prerequisites
 
 - Node.js (v18 or higher)

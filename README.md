@@ -28,11 +28,12 @@ The Shashogo Woreda Integrated Digital System is a unified e-government platform
 - Citizens of Shashogo Woreda
 - Regional oversight bodies
 
-## Technology Stack
+## ## Technology Stack
 
-- **Frontend:** _(specify e.g. React, HTML/CSS/JS)_
-- **Backend:** _(specify e.g. Node.js, Django, Laravel)_
-- **Database:** _(specify e.g. PostgreSQL, MySQL)_
+- **Frontend:** HTML, CSS, JavaScript
+- **Backend:** Node.js (Express-style server via `server.js`)
+- **Containerization:** Docker
+- **Deployment:** Render-ready build (`swids-render-ready.zip`)
 - **Hosting/Domain:** shashogo.gov.et
 
 ## Getting Started

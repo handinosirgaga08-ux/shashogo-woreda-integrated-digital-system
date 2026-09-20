@@ -28,6 +28,7 @@ const DATA_FILE = path.resolve(process.env.DATA_FILE || "./data/records.json");
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@example.com";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "change-me";
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync(ADMIN_PASSWORD, 10);
 const SESSION_SECRET = process.env.SESSION_SECRET || "dev-only-change-this-secret";
 
 if (process.env.NODE_ENV === "production" && SESSION_SECRET === "dev-only-change-this-secret") {
@@ -143,8 +144,7 @@ app.post("/api/login", loginLimiter, async (req, res) => {
     return res.status(401).json({ error: "Invalid email or password." });
   }
 
-  // Supports a plain env password for the starter while comparing safely.
-  const valid = await bcrypt.compare(password, await bcrypt.hash(ADMIN_PASSWORD, 10));
+  const valid = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
   if (!valid) return res.status(401).json({ error: "Invalid email or password." });
 
   const token = makeSessionToken(email);
@@ -230,13 +230,22 @@ app.delete("/api/records/:id", requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+app.get("/admin_panel.html", (req, res) => {
+  res.sendFile(path.join(__dirname, "admin_panel.html"));
+});
+
 app.get("/admin", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+  res.sendFile(path.join(__dirname, "admin_panel.html"));
+});
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "admin_panel.html"));
 });
 
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
+
 const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });

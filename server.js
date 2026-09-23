@@ -104,15 +104,34 @@ function cleanText(value, max = 500) {
   return String(value ?? "").trim().slice(0, max);
 }
 
+// YYYY-MM-DD from an <input type="date">; blank is allowed, anything else is rejected.
+function cleanDate(value) {
+  const v = cleanText(value, 10);
+  if (!v) return "";
+  return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+}
+
+const GENDERS = ["", "Male", "Female", "Other"];
+
 function validateRecord(body) {
   const record = {
     name: cleanText(body.name, 120), category: cleanText(body.category, 80),
-    kebele: cleanText(body.kebele, 100), phone: cleanText(body.phone, 40),
+    nationalId: cleanText(body.nationalId, 60),
+    dob: cleanDate(body.dob),
+    gender: cleanText(body.gender, 20),
+    nationality: cleanText(body.nationality, 80),
+    region: cleanText(body.region, 100),
+    kebele: cleanText(body.kebele, 100),
+    address: cleanText(body.address, 150),
+    phone: cleanText(body.phone, 40),
     status: cleanText(body.status, 40), notes: cleanText(body.notes, 1000)
   };
   if (!record.name) return { error: "Name is required." };
   if (!record.category) return { error: "Category is required." };
+  if (record.dob === null) return { error: "Date of birth must be a valid date." };
+  if (!GENDERS.includes(record.gender)) return { error: "Gender must be Male, Female, or Other." };
   if (!record.status) record.status = "Active";
+  if (!record.nationality) record.nationality = "Ethiopian";
   return { record };
 }
 
@@ -138,7 +157,10 @@ app.get("/api/me", requireAuth, (req, res) => res.json({ authenticated: true, us
 app.get("/api/records", requireAuth, (req, res) => {
   const q = cleanText(req.query.q, 100).toLowerCase();
   let records = readRecords();
-  if (q) records = records.filter(r => [r.name, r.category, r.kebele, r.phone, r.status, r.notes].some(v => String(v || "").toLowerCase().includes(q)));
+  if (q) records = records.filter(r => [
+    r.name, r.category, r.nationalId, r.gender, r.nationality, r.region,
+    r.kebele, r.address, r.phone, r.status, r.notes
+  ].some(v => String(v || "").toLowerCase().includes(q)));
   records.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
   res.json({ records });
 });

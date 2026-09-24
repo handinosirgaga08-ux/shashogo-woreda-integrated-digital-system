@@ -8,6 +8,7 @@ const bcrypt = require("bcryptjs");
 require("dotenv").config();
 
 const app = express();
+app.set("trust proxy", 1);
 const PORT = Number(process.env.PORT || 5000);
 const DATA_FILE = path.resolve(process.env.DATA_FILE || "./data/records.json");
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@example.com";
@@ -193,7 +194,11 @@ app.delete("/api/records/:id", requireAuth, (req, res) => {
 
 app.get("/admin_panel.html", (req, res) => res.sendFile(path.join(__dirname, "admin_panel.html")));
 app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "admin_panel.html")));
-app.get("/", (req, res) => res.sendFile(path.join(__dirname, "admin_panel.html")));
+
+app.get("/", (req, res) => res.sendFile(path.join(__dirname, "public", "home.html")));
+app.get("/about", (req, res) => res.sendFile(path.join(__dirname, "public", "about.html")));
+app.get("/contact", (req, res) => res.sendFile(path.join(__dirname, "public", "contact.html")));
+
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 
 app.listen(PORT, "0.0.0.0", () => console.log(`Server running on port ${PORT}`));

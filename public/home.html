@@ -9,6 +9,47 @@
     header { background: #0b1120; color: white; padding: 20px; }
     nav a { color: white; margin-right: 20px; text-decoration: none; }
     main { padding: 40px; text-align: center; }
+
+    .lake-section {
+      max-width: 1000px;
+      margin: 40px auto;
+      background: white;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      text-align: left;
+    }
+    .lake-section img {
+      width: 100%;
+      display: block;
+    }
+    .lake-content {
+      padding: 24px 30px;
+    }
+    .lake-content h2 {
+      color: #0b1120;
+      margin-top: 0;
+    }
+    .lake-content p {
+      color: #444;
+      line-height: 1.6;
+    }
+    .lake-tags {
+      display: flex;
+      gap: 30px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    .lake-tag {
+      text-align: center;
+      color: #0b1120;
+      font-weight: 600;
+    }
+    .lake-tag span {
+      display: block;
+      font-size: 28px;
+      margin-bottom: 4px;
+    }
   </style>
 </head>
 <body>
@@ -24,6 +65,24 @@
   <main>
     <h2>Welcome</h2>
     <p>This is the official portal for local administrative records.</p>
+
+    <section class="lake-section">
+      <img src="/file_000000000c3082119c1ef7eab56a92a8.png" alt="Boyo Lake, Shashogo Woreda">
+      <div class="lake-content">
+        <h2>Boyo Lake — Nature's Beauty, Our Pride</h2>
+        <p>
+          Boyo Lake is one of Shashogo Woreda's most treasured natural landmarks — a destination
+          of breathtaking scenery, rich biodiversity, and growing ecotourism potential. The Woreda
+          is committed to preserving this natural heritage while developing sustainable tourism
+          that benefits residents and visitors alike.
+        </p>
+        <div class="lake-tags">
+          <div class="lake-tag"><span>📷</span>Tourism</div>
+          <div class="lake-tag"><span>🌿</span>Nature</div>
+          <div class="lake-tag"><span>🤝</span>Community</div>
+        </div>
+      </div>
+    </section>
   </main>
 </body>
 </html>

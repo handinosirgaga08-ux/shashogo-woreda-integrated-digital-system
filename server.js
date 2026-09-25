@@ -112,26 +112,58 @@ function cleanDate(value) {
 }
 
 const GENDERS = ["", "Male", "Female", "Other"];
+const MARITAL_STATUSES = ["", "Single", "Married", "Divorced", "Widowed"];
+const EMPLOYMENT_TYPES = ["", "Permanent", "Contract", "Temporary", "Intern"];
+const STATUSES = ["Active", "On Leave", "Suspended", "Terminated"];
 
 function validateRecord(body) {
   const record = {
-    name: cleanText(body.name, 120), category: cleanText(body.category, 80),
-    nationalId: cleanText(body.nationalId, 60),
+    // Personal information
+    name: cleanText(body.name, 150),
+    employeeId: cleanText(body.employeeId, 60),
     dob: cleanDate(body.dob),
     gender: cleanText(body.gender, 20),
     nationality: cleanText(body.nationality, 80),
-    region: cleanText(body.region, 100),
-    kebele: cleanText(body.kebele, 100),
-    address: cleanText(body.address, 150),
+    placeOfBirth: cleanText(body.placeOfBirth, 120),
+    maritalStatus: cleanText(body.maritalStatus, 20),
+    tin: cleanText(body.tin, 40),
+
+    // Contact & address
     phone: cleanText(body.phone, 40),
-    status: cleanText(body.status, 40), notes: cleanText(body.notes, 1000)
+    kebele: cleanText(body.kebele, 120),
+    emergencyName: cleanText(body.emergencyName, 120),
+    emergencyPhone: cleanText(body.emergencyPhone, 40),
+
+    // Employment details
+    department: cleanText(body.department, 120),
+    position: cleanText(body.position, 120),
+    employmentType: cleanText(body.employmentType, 20),
+    hireDate: cleanDate(body.hireDate),
+    salaryGrade: cleanText(body.salaryGrade, 40),
+    supervisor: cleanText(body.supervisor, 120),
+    education: cleanText(body.education, 120),
+
+    status: cleanText(body.status, 40),
+    notes: cleanText(body.notes, 1000)
   };
-  if (!record.name) return { error: "Name is required." };
-  if (!record.category) return { error: "Category is required." };
+
+  if (!record.name) return { error: "Full name is required." };
+  if (!record.employeeId) return { error: "Employee / National ID is required." };
   if (record.dob === null) return { error: "Date of birth must be a valid date." };
-  if (!GENDERS.includes(record.gender)) return { error: "Gender must be Male, Female, or Other." };
-  if (!record.status) record.status = "Active";
+  if (!record.dob) return { error: "Date of birth is required." };
+  if (!GENDERS.includes(record.gender) || !record.gender) return { error: "Gender must be Male, Female, or Other." };
+  if (!MARITAL_STATUSES.includes(record.maritalStatus)) return { error: "Invalid marital status." };
+  if (!record.phone) return { error: "Phone is required." };
+  if (!record.department) return { error: "Department / Office is required." };
+  if (!record.position) return { error: "Position / Job title is required." };
+  if (record.hireDate === null) return { error: "Hire date must be a valid date." };
+  if (!record.hireDate) return { error: "Hire date is required." };
+  if (!EMPLOYMENT_TYPES.includes(record.employmentType)) return { error: "Invalid employment type." };
+
   if (!record.nationality) record.nationality = "Ethiopian";
+  if (!record.employmentType) record.employmentType = "Permanent";
+  if (!STATUSES.includes(record.status)) record.status = "Active";
+
   return { record };
 }
 
@@ -158,8 +190,10 @@ app.get("/api/records", requireAuth, (req, res) => {
   const q = cleanText(req.query.q, 100).toLowerCase();
   let records = readRecords();
   if (q) records = records.filter(r => [
-    r.name, r.category, r.nationalId, r.gender, r.nationality, r.region,
-    r.kebele, r.address, r.phone, r.status, r.notes
+    r.name, r.employeeId, r.gender, r.nationality, r.placeOfBirth, r.maritalStatus, r.tin,
+    r.kebele, r.phone, r.emergencyName, r.emergencyPhone,
+    r.department, r.position, r.employmentType, r.salaryGrade, r.supervisor, r.education,
+    r.status, r.notes
   ].some(v => String(v || "").toLowerCase().includes(q)));
   records.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
   res.json({ records });

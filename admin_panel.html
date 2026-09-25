@@ -14,6 +14,8 @@
     .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; box-shadow:0 2px 8px #00000008; margin-bottom:18px; }
     .hidden { display:none !important; }
     .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+    .section-title { grid-column:1/-1; margin:18px 0 2px; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); border-top:1px solid #eaecf0; padding-top:14px; }
+    .section-title:first-child { border-top:0; padding-top:0; margin-top:0; }
     label { display:block; font-size:14px; font-weight:600; margin-bottom:6px; }
     input, select, textarea { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font:inherit; }
     textarea { min-height:90px; resize:vertical; }
@@ -27,6 +29,8 @@
     th, td { text-align:left; padding:11px 8px; border-bottom:1px solid #eaecf0; vertical-align:top; }
     th { font-size:13px; color:#475467; }
     .status { padding:4px 8px; border-radius:999px; background:#ecfdf3; color:#027a48; font-size:12px; }
+    .status.leave { background:#fff4e0; color:#93650a; }
+    .status.suspended, .status.terminated { background:#fee4e2; color:#b42318; }
     .error { color:var(--danger); margin-top:8px; }
     .muted { color:var(--muted); }
     @media(max-width:700px) { .grid { grid-template-columns:1fr; } table { display:block; overflow:auto; white-space:nowrap; } }
@@ -54,8 +58,8 @@
     <div class="card">
       <div class="toolbar">
         <div>
-          <h2 id="formTitle">Add record</h2>
-          <p class="muted">Create and update local administrative records.</p>
+          <h2 id="formTitle">Add employee record</h2>
+          <p class="muted">Create and update government employee records.</p>
         </div>
         <button id="newBtn" class="secondary">New record</button>
       </div>
@@ -63,15 +67,58 @@
       <form id="recordForm">
         <input id="recordId" type="hidden">
         <div class="grid">
-          <label>Name *<input id="name" required maxlength="120"></label>
-          <label>Category *<input id="category" required maxlength="80" placeholder="e.g. Citizen, Business"></label>
-          <label>Kebele<input id="kebele" maxlength="100"></label>
-          <label>Phone<input id="phone" maxlength="40"></label>
+
+          <div class="section-title">Personal information</div>
+          <label>Full name *<input id="name" required maxlength="150" placeholder="First Father's Grandfather's"></label>
+          <label>Employee / National ID *<input id="employeeId" required maxlength="60"></label>
+          <label>Date of birth *<input id="dob" type="date" required></label>
+          <label>Gender *
+            <select id="gender" required>
+              <option value="">Select...</option>
+              <option>Male</option>
+              <option>Female</option>
+            </select>
+          </label>
+          <label>Nationality *<input id="nationality" required maxlength="80" value="Ethiopian"></label>
+          <label>Place of birth<input id="placeOfBirth" maxlength="120"></label>
+          <label>Marital status
+            <select id="maritalStatus">
+              <option value="">Select...</option>
+              <option>Single</option>
+              <option>Married</option>
+              <option>Divorced</option>
+              <option>Widowed</option>
+            </select>
+          </label>
+          <label>TIN number<input id="tin" maxlength="40"></label>
+
+          <div class="section-title">Contact &amp; address</div>
+          <label>Phone *<input id="phone" required maxlength="40"></label>
+          <label>Kebele / Address<input id="kebele" maxlength="120"></label>
+          <label>Emergency contact name<input id="emergencyName" maxlength="120"></label>
+          <label>Emergency contact phone<input id="emergencyPhone" maxlength="40"></label>
+
+          <div class="section-title">Employment details</div>
+          <label>Department / Office *<input id="department" required maxlength="120"></label>
+          <label>Position / Job title *<input id="position" required maxlength="120"></label>
+          <label>Employment type
+            <select id="employmentType">
+              <option>Permanent</option>
+              <option>Contract</option>
+              <option>Temporary</option>
+              <option>Intern</option>
+            </select>
+          </label>
+          <label>Hire date *<input id="hireDate" type="date" required></label>
+          <label>Salary grade / step<input id="salaryGrade" maxlength="40"></label>
+          <label>Supervisor / Reports to<input id="supervisor" maxlength="120"></label>
+          <label>Educational qualification<input id="education" maxlength="120" placeholder="e.g. BA, Diploma"></label>
           <label>Status
             <select id="status">
               <option>Active</option>
-              <option>Pending</option>
-              <option>Inactive</option>
+              <option>On Leave</option>
+              <option>Suspended</option>
+              <option>Terminated</option>
             </select>
           </label>
         </div>
@@ -173,6 +220,13 @@ async function loadRecords() {
   }
 }
 
+function statusClass(s) {
+  const v = String(s || "").toLowerCase();
+  if (v === "on leave") return "leave";
+  if (v === "suspended" || v === "terminated") return "suspended";
+  return "";
+}
+
 function renderRecords() {
   $("count").textContent = `${records.length} record${records.length === 1 ? "" : "s"}`;
   if (!records.length) {
@@ -182,14 +236,15 @@ function renderRecords() {
 
   $("tableWrap").innerHTML = `
     <table>
-      <thead><tr><th>Name</th><th>Category</th><th>Kebele</th><th>Phone</th><th>Status</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Name</th><th>Employee ID</th><th>Department</th><th>Position</th><th>Phone</th><th>Status</th><th>Actions</th></tr></thead>
       <tbody>${records.map(r => `
         <tr>
           <td>${esc(r.name)}</td>
-          <td>${esc(r.category)}</td>
-          <td>${esc(r.kebele)}</td>
+          <td>${esc(r.employeeId)}</td>
+          <td>${esc(r.department)}</td>
+          <td>${esc(r.position)}</td>
           <td>${esc(r.phone)}</td>
-          <td><span class="status">${esc(r.status)}</span></td>
+          <td><span class="status ${statusClass(r.status)}">${esc(r.status)}</span></td>
           <td>
             <button class="secondary" onclick="editRecord('${r.id}')">Edit</button>
             <button class="danger" onclick="deleteRecord('${r.id}')">Delete</button>
@@ -208,13 +263,28 @@ window.editRecord = id => {
   const r = records.find(x => x.id === id);
   if (!r) return;
   $("recordId").value = r.id;
-  $("name").value = r.name;
-  $("category").value = r.category;
-  $("kebele").value = r.kebele;
-  $("phone").value = r.phone;
-  $("status").value = r.status;
-  $("notes").value = r.notes;
-  $("formTitle").textContent = "Edit record";
+  $("name").value = r.name || "";
+  $("employeeId").value = r.employeeId || "";
+  $("dob").value = r.dob || "";
+  $("gender").value = r.gender || "";
+  $("nationality").value = r.nationality || "";
+  $("placeOfBirth").value = r.placeOfBirth || "";
+  $("maritalStatus").value = r.maritalStatus || "";
+  $("tin").value = r.tin || "";
+  $("phone").value = r.phone || "";
+  $("kebele").value = r.kebele || "";
+  $("emergencyName").value = r.emergencyName || "";
+  $("emergencyPhone").value = r.emergencyPhone || "";
+  $("department").value = r.department || "";
+  $("position").value = r.position || "";
+  $("employmentType").value = r.employmentType || "Permanent";
+  $("hireDate").value = r.hireDate || "";
+  $("salaryGrade").value = r.salaryGrade || "";
+  $("supervisor").value = r.supervisor || "";
+  $("education").value = r.education || "";
+  $("status").value = r.status || "Active";
+  $("notes").value = r.notes || "";
+  $("formTitle").textContent = "Edit employee record";
   window.scrollTo({ top: 0, behavior: "smooth" });
 };
 
@@ -231,8 +301,10 @@ window.deleteRecord = async id => {
 function clearForm() {
   $("recordForm").reset();
   $("recordId").value = "";
+  $("nationality").value = "Ethiopian";
+  $("employmentType").value = "Permanent";
   $("status").value = "Active";
-  $("formTitle").textContent = "Add record";
+  $("formTitle").textContent = "Add employee record";
   $("formError").textContent = "";
 }
 
@@ -243,9 +315,24 @@ $("recordForm").addEventListener("submit", async e => {
   const id = $("recordId").value;
   const payload = {
     name: $("name").value,
-    category: $("category").value,
-    kebele: $("kebele").value,
+    employeeId: $("employeeId").value,
+    dob: $("dob").value,
+    gender: $("gender").value,
+    nationality: $("nationality").value,
+    placeOfBirth: $("placeOfBirth").value,
+    maritalStatus: $("maritalStatus").value,
+    tin: $("tin").value,
     phone: $("phone").value,
+    kebele: $("kebele").value,
+    emergencyName: $("emergencyName").value,
+    emergencyPhone: $("emergencyPhone").value,
+    department: $("department").value,
+    position: $("position").value,
+    employmentType: $("employmentType").value,
+    hireDate: $("hireDate").value,
+    salaryGrade: $("salaryGrade").value,
+    supervisor: $("supervisor").value,
+    education: $("education").value,
     status: $("status").value,
     notes: $("notes").value
   };

@@ -99,6 +99,27 @@ function writeRecords(records) {
   fs.renameSync(tmp, DATA_FILE);
 }
 
+function cleanText(value, max = 500) {
+  return String(value ?? "").trim().slice(0, max);
+}
+
+function validateRecord(body) {
+  const record = {
+    name: cleanText(body.name, 120),
+    category: cleanText(body.category, 80),
+    kebele: cleanText(body.kebele, 100),
+    phone: cleanText(body.phone, 40),
+    status: cleanText(body.status, 40),
+    notes: cleanText(body.notes, 1000)
+  };
+
+  if (!record.name) return { error: "Name is required." };
+  if (!record.category) return { error: "Category is required." };
+  if (!record.status) record.status = "Active";
+
+  return { record };
+}
+
 function readEvaluations() {
   try {
     const parsed = JSON.parse(fs.readFileSync(EVAL_FILE, "utf8"));
@@ -115,38 +136,36 @@ function writeEvaluations(evaluations) {
   fs.renameSync(tmp, EVAL_FILE);
 }
 
-const EVAL_CRITERIA = ["quality", "productivity", "teamwork", "attendance", "initiative"];
+const EVAL_OUTCOMES = ["Resolved", "Ongoing", "Escalated", "No Action Needed"];
 
-function validateEvaluation(body, employeeRecords) {
-  const employeeId = cleanText(body.employeeId, 60);
-  const employee = employeeRecords.find(r => r.id === employeeId);
-  if (!employee) return { error: "Select a valid employee." };
+// An "evaluation" here is a follow-up assessment tied to any existing
+// record (citizen, business, etc.) — not a staff performance review.
+function validateEvaluation(body, allRecords) {
+  const recordId = cleanText(body.recordId, 60);
+  const record = allRecords.find(r => r.id === recordId);
+  if (!record) return { error: "Select a valid record to evaluate." };
 
-  const period = cleanText(body.period, 40);
-  if (!period) return { error: "Evaluation period is required." };
+  const period = cleanText(body.period, 40) || new Date().toISOString().slice(0, 10);
 
-  const criteria = {};
-  for (const key of EVAL_CRITERIA) {
-    const raw = body.criteria ? body.criteria[key] : undefined;
-    const value = Number(raw);
-    if (!Number.isFinite(value) || value < 1 || value > 5) {
-      return { error: `Score for "${key}" must be a number between 1 and 5.` };
-    }
-    criteria[key] = value;
+  const rating = Number(body.rating);
+  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+    return { error: "Rating must be a number between 1 and 5." };
   }
 
-  const overallScore = Number(
-    (EVAL_CRITERIA.reduce((sum, key) => sum + criteria[key], 0) / EVAL_CRITERIA.length).toFixed(2)
-  );
+  const outcome = cleanText(body.outcome, 40) || "Ongoing";
+  if (!EVAL_OUTCOMES.includes(outcome)) {
+    return { error: `Outcome must be one of: ${EVAL_OUTCOMES.join(", ")}.` };
+  }
 
   const evaluation = {
-    employeeId,
-    employeeName: employee.name,
-    department: employee.department || "",
+    recordId,
+    recordName: record.name,
+    category: record.category,
+    kebele: record.kebele,
     period,
-    reviewer: cleanText(body.reviewer, 120),
-    criteria,
-    overallScore,
+    evaluator: cleanText(body.evaluator, 120),
+    rating,
+    outcome,
     comments: cleanText(body.comments, 1000)
   };
 
@@ -176,27 +195,6 @@ function countBy(list, fn) {
     counts[key] = (counts[key] || 0) + 1;
   }
   return counts;
-}
-
-function cleanText(value, max = 500) {
-  return String(value ?? "").trim().slice(0, max);
-}
-
-function validateRecord(body) {
-  const record = {
-    name: cleanText(body.name, 120),
-    category: cleanText(body.category, 80),
-    kebele: cleanText(body.kebele, 100),
-    phone: cleanText(body.phone, 40),
-    status: cleanText(body.status, 40),
-    notes: cleanText(body.notes, 1000)
-  };
-
-  if (!record.name) return { error: "Name is required." };
-  if (!record.category) return { error: "Category is required." };
-  if (!record.status) record.status = "Active";
-
-  return { record };
 }
 
 app.get("/api/health", (req, res) => {
@@ -298,14 +296,14 @@ app.delete("/api/records/:id", requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-// ---------------- Performance evaluations ----------------
+// ---------------- Evaluations (follow-up assessments on records) ----------------
 
 app.get("/api/evaluations", requireAuth, (req, res) => {
-  const employeeId = cleanText(req.query.employeeId, 60);
+  const recordId = cleanText(req.query.recordId, 60);
   let evaluations = readEvaluations();
 
-  if (employeeId) {
-    evaluations = evaluations.filter(ev => ev.employeeId === employeeId);
+  if (recordId) {
+    evaluations = evaluations.filter(ev => ev.recordId === recordId);
   }
 
   evaluations.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
@@ -313,8 +311,8 @@ app.get("/api/evaluations", requireAuth, (req, res) => {
 });
 
 app.post("/api/evaluations", requireAuth, (req, res) => {
-  const employeeRecords = readRecords();
-  const result = validateEvaluation(req.body, employeeRecords);
+  const allRecords = readRecords();
+  const result = validateEvaluation(req.body, allRecords);
   if (result.error) return res.status(400).json({ error: result.error });
 
   const now = new Date().toISOString();
@@ -332,8 +330,8 @@ app.post("/api/evaluations", requireAuth, (req, res) => {
 });
 
 app.put("/api/evaluations/:id", requireAuth, (req, res) => {
-  const employeeRecords = readRecords();
-  const result = validateEvaluation(req.body, employeeRecords);
+  const allRecords = readRecords();
+  const result = validateEvaluation(req.body, allRecords);
   if (result.error) return res.status(400).json({ error: result.error });
 
   const evaluations = readEvaluations();
@@ -368,23 +366,23 @@ app.get("/api/reports/summary", requireAuth, (req, res) => {
   const records = readRecords();
   const evaluations = readEvaluations();
 
-  const activeEmployees = records.filter(r => r.status === "Active").length;
+  const activeRecords = records.filter(r => r.status === "Active").length;
 
-  const averageScore = evaluations.length
+  const averageRating = evaluations.length
     ? Number(
-        (evaluations.reduce((sum, ev) => sum + Number(ev.overallScore || 0), 0) / evaluations.length).toFixed(2)
+        (evaluations.reduce((sum, ev) => sum + Number(ev.rating || 0), 0) / evaluations.length).toFixed(2)
       )
     : null;
 
   res.json({
-    totalEmployees: records.length,
-    activeEmployees,
+    totalRecords: records.length,
+    activeRecords,
     totalEvaluations: evaluations.length,
-    averageScore,
-    byDepartment: countBy(records, r => r.department),
+    averageRating,
+    byCategory: countBy(records, r => r.category),
     byStatus: countBy(records, r => r.status),
-    byEmploymentType: countBy(records, r => r.employmentType),
-    byGender: countBy(records, r => r.gender)
+    byKebele: countBy(records, r => r.kebele),
+    byOutcome: countBy(evaluations, ev => ev.outcome)
   });
 });
 
@@ -392,27 +390,27 @@ app.get("/api/reports/export/records.csv", requireAuth, (req, res) => {
   const records = readRecords();
   const csv = toCsv(records, [
     { key: "name", label: "Name" },
-    { key: "employeeId", label: "Employee ID" },
-    { key: "department", label: "Department" },
-    { key: "position", label: "Position" },
-    { key: "employmentType", label: "Employment Type" },
-    { key: "status", label: "Status" },
-    { key: "phone", label: "Phone" },
+    { key: "category", label: "Category" },
     { key: "kebele", label: "Kebele" },
-    { key: "hireDate", label: "Hire Date" },
-    { key: "gender", label: "Gender" }
+    { key: "phone", label: "Phone" },
+    { key: "status", label: "Status" },
+    { key: "notes", label: "Notes" },
+    { key: "createdAt", label: "Created At" },
+    { key: "updatedAt", label: "Updated At" }
   ]);
-  sendCsv(res, "employees.csv", csv);
+  sendCsv(res, "records.csv", csv);
 });
 
 app.get("/api/reports/export/evaluations.csv", requireAuth, (req, res) => {
   const evaluations = readEvaluations();
   const csv = toCsv(evaluations, [
-    { key: "employeeName", label: "Employee" },
-    { key: "department", label: "Department" },
+    { key: "recordName", label: "Record" },
+    { key: "category", label: "Category" },
+    { key: "kebele", label: "Kebele" },
     { key: "period", label: "Period" },
-    { key: "reviewer", label: "Reviewer" },
-    { key: "overallScore", label: "Overall Score" },
+    { key: "evaluator", label: "Evaluator" },
+    { key: "rating", label: "Rating" },
+    { key: "outcome", label: "Outcome" },
     { key: "comments", label: "Comments" },
     { key: "updatedAt", label: "Last Updated" }
   ]);
@@ -420,7 +418,7 @@ app.get("/api/reports/export/evaluations.csv", requireAuth, (req, res) => {
 });
 
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "admin_panel.html"));
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 app.listen(PORT, () => {

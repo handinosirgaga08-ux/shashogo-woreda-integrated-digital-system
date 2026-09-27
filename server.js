@@ -7,9 +7,9 @@ const rateLimit = require("express-rate-limit");
 const bcrypt = require("bcryptjs");
 require("dotenv").config();
 
+
 const app = express();
-const app = express();
-app.set('trust proxy', 1);   // <-- add this line
+app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT || 5000);
 const DATA_FILE = path.resolve(process.env.DATA_FILE || "./data/records.json");
 const EVAL_FILE = path.resolve(process.env.EVAL_FILE || "./data/evaluations.json");

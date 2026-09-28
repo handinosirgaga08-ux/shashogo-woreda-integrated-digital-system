@@ -4,27 +4,27 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SWIDS Admin Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     :root { --bg:#f5f5f5; --card:#fff; --text:#17202a; --muted:#667085; --primary:#1769aa; --danger:#b42318; --border:#d0d5dd; --navy:#0b1120; }
     * { box-sizing:border-box; }
-    body { margin:0; font-family:Arial,sans-serif; background:var(--bg); color:var(--text); }
-
-    /* --- Header + nav (matches homepage) --- */
+    body { margin:0; font-family:"Noto Sans Ethiopic",Arial,sans-serif; background:var(--bg); color:var(--text); }
     header { background:var(--navy); color:white; padding:20px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
     header h1 { margin:0 0 10px; font-size:24px; }
     nav a { color:white; margin-right:20px; text-decoration:none; }
     nav a:hover { text-decoration:underline; }
-
+    .header-tools { display:flex; gap:8px; align-items:center; }
+    .lang-btn { background:#fff; color:var(--navy); }
     main { max-width:1200px; margin:24px auto; padding:0 16px; }
-
-    /* --- Banner card (matches homepage lake section) --- */
     .banner-card { background:var(--card); border-radius:16px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,0.08); margin-bottom:18px; }
     .banner-card img { width:100%; height:auto; display:block; }
-
     .card { background:var(--card); border:none; border-radius:16px; padding:24px; box-shadow:0 2px 10px rgba(0,0,0,0.08); margin-bottom:18px; }
     .card h2 { color:var(--navy); margin-top:0; }
     .hidden { display:none !important; }
     .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+    .section-title { font-size:15px; margin:20px 0 10px; color:var(--navy); border-top:1px solid #eaecf0; padding-top:14px; }
     label { display:block; font-size:14px; font-weight:600; margin-bottom:6px; }
     input, select, textarea { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font:inherit; }
     textarea { min-height:90px; resize:vertical; }
@@ -34,6 +34,7 @@
     .danger { background:#fee4e2; color:var(--danger); }
     .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
     .toolbar { display:flex; gap:10px; justify-content:space-between; align-items:center; flex-wrap:wrap; }
+    .filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:14px; }
     table { width:100%; border-collapse:collapse; margin-top:12px; }
     th, td { text-align:left; padding:11px 8px; border-bottom:1px solid #eaecf0; vertical-align:top; }
     th { font-size:13px; color:#475467; }
@@ -42,15 +43,13 @@
     .status.inactive { background:#eaecf0; color:#475467; }
     .error { color:var(--danger); margin-top:8px; }
     .muted { color:var(--muted); }
-    /* --- Tabs --- */
     .tabs { display:flex; gap:6px; margin-bottom:16px; }
     .tab-btn { background:#eaecf0; color:#344054; padding:9px 16px; border-radius:8px; }
     .tab-btn.active { background:var(--primary); color:#fff; }
-    /* --- Reports / evaluation --- */
     .stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
     .stat-box { background:#f8f9fb; border:1px solid #eaecf0; border-radius:10px; padding:14px; }
     .stat-box .num { font-size:24px; font-weight:700; }
-    .stat-box .lbl { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; }
+    .stat-box .lbl { font-size:12px; color:var(--muted); }
     .breakdown { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-top:16px; }
     .bar-row { display:flex; align-items:center; gap:8px; font-size:13px; margin:6px 0; }
     .bar-row .bar-label { width:110px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -73,15 +72,18 @@
 <body>
 <header>
   <div>
-    <h1>Shashogo Woreda Integrated Digital System</h1>
+    <h1 data-i18n="siteTitle"></h1>
     <nav>
-      <a href="/">Home</a>
-      <a href="/about">About</a>
-      <a href="/contact">Contact</a>
-      <a href="/admin">Admin Panel</a>
+      <a href="/" data-i18n="home"></a>
+      <a href="/about" data-i18n="about"></a>
+      <a href="/contact" data-i18n="contact"></a>
+      <a href="/admin" data-i18n="adminPanel"></a>
     </nav>
   </div>
-  <button id="logoutBtn" class="secondary hidden">Logout</button>
+  <div class="header-tools">
+    <button id="langBtn" class="lang-btn" type="button" aria-label="Language">አማርኛ</button>
+    <button id="logoutBtn" class="secondary hidden" data-i18n="logout"></button>
+  </div>
 </header>
 
 <main>
@@ -90,52 +92,76 @@
   </div>
 
   <section id="loginCard" class="card">
-    <h2>Administrator login</h2>
-    <p class="muted">Sign in to manage SWIDS records.</p>
+    <h2 data-i18n="adminLogin"></h2>
+    <p class="muted" data-i18n="loginHint"></p>
     <form id="loginForm">
-      <label>Email<input id="email" type="email" required autocomplete="username"></label>
-      <label>Password<input id="password" type="password" required autocomplete="current-password"></label>
-      <div class="actions"><button class="primary" type="submit">Sign in</button></div>
+      <label><span data-i18n="email"></span><input id="email" type="email" required autocomplete="username"></label>
+      <label><span data-i18n="password"></span><input id="password" type="password" required autocomplete="current-password"></label>
+      <div class="actions"><button class="primary" type="submit" data-i18n="signIn"></button></div>
       <div id="loginError" class="error"></div>
     </form>
   </section>
 
   <section id="app" class="hidden">
     <div class="tabs">
-      <button class="tab-btn active" data-tab="recordsTab">Records</button>
-      <button class="tab-btn" data-tab="reportsTab">Reports &amp; Evaluation</button>
+      <button class="tab-btn active" data-tab="recordsTab" data-i18n="tabRecords"></button>
+      <button class="tab-btn" data-tab="reportsTab" data-i18n="tabReports"></button>
     </div>
 
-    <!-- ============ RECORDS TAB ============ -->
+    <!-- RECORDS TAB -->
     <div id="recordsTab">
       <div class="card">
         <div class="toolbar">
           <div>
-            <h2 id="formTitle">Add record</h2>
-            <p class="muted">Create and update local administrative records.</p>
+            <h2 id="formTitle" data-i18n="addRecord"></h2>
+            <p class="muted" data-i18n="formHint"></p>
           </div>
-          <button id="newBtn" class="secondary">New record</button>
+          <button id="newBtn" class="secondary" data-i18n="newRecord"></button>
         </div>
 
         <form id="recordForm">
           <input id="recordId" type="hidden">
           <div class="grid">
-            <label>Name *<input id="name" required maxlength="120"></label>
-            <label>Category *<input id="category" required maxlength="80" placeholder="e.g. Citizen, Business"></label>
-            <label>Kebele<input id="kebele" maxlength="100"></label>
-            <label>Phone<input id="phone" maxlength="40"></label>
-            <label>Status
+            <label><span data-i18n="name"></span> *<input id="name" required maxlength="120"></label>
+            <label><span data-i18n="category"></span> *<input id="category" required maxlength="80" list="categoryList" data-ph="categoryPh"></label>
+            <label><span data-i18n="kebele"></span><input id="kebele" maxlength="100" list="kebeleList"></label>
+            <label><span data-i18n="phone"></span><input id="phone" type="tel" maxlength="40" inputmode="tel" placeholder="09XXXXXXXX"></label>
+            <label><span data-i18n="status"></span>
               <select id="status">
-                <option>Active</option>
-                <option>Pending</option>
-                <option>Inactive</option>
+                <option value="Active" data-i18n="Active"></option>
+                <option value="Pending" data-i18n="Pending"></option>
+                <option value="Inactive" data-i18n="Inactive"></option>
               </select>
             </label>
           </div>
-          <label style="margin-top:14px">Notes<textarea id="notes" maxlength="1000"></textarea></label>
+          <datalist id="categoryList"></datalist>
+          <datalist id="kebeleList"></datalist>
+
+          <h3 class="section-title" data-i18n="personalWork"></h3>
+          <div class="grid">
+            <label><span data-i18n="idNumber"></span><input id="idNumber" maxlength="50"></label>
+            <label><span data-i18n="birthDate"></span><input id="birthDate" type="date"></label>
+            <label><span data-i18n="maritalStatus"></span>
+              <select id="maritalStatus">
+                <option value=""></option>
+                <option value="Single" data-i18n="Single"></option>
+                <option value="Married" data-i18n="Married"></option>
+                <option value="Divorced" data-i18n="Divorced"></option>
+                <option value="Widowed" data-i18n="Widowed"></option>
+              </select>
+            </label>
+            <label><span data-i18n="hireDate"></span><input id="hireDate" type="date"></label>
+            <label><span data-i18n="sector"></span><input id="sector" maxlength="100"></label>
+            <label><span data-i18n="workLine"></span><input id="workLine" maxlength="100"></label>
+            <label><span data-i18n="department"></span><input id="department" maxlength="100"></label>
+            <label><span data-i18n="profession"></span><input id="profession" maxlength="100"></label>
+            <label><span data-i18n="experienceYears"></span><input id="experienceYears" type="number" min="0" max="60" step="1"></label>
+          </div>
+
+          <label style="margin-top:14px"><span data-i18n="notes"></span><textarea id="notes" maxlength="1000"></textarea></label>
           <div class="actions">
-            <button class="primary" type="submit">Save record</button>
-            <button type="button" id="cancelBtn" class="secondary">Clear</button>
+            <button class="primary" type="submit" data-i18n="saveRecord"></button>
+            <button type="button" id="cancelBtn" class="secondary" data-i18n="clear"></button>
           </div>
           <div id="formError" class="error"></div>
         </form>
@@ -144,78 +170,66 @@
       <div class="card">
         <div class="toolbar">
           <div>
-            <h2>Records</h2>
+            <h2 data-i18n="tabRecords"></h2>
             <span id="count" class="muted"></span>
           </div>
-          <input id="search" style="max-width:300px" placeholder="Search records...">
+          <input id="search" style="max-width:300px" data-ph="searchPh">
+        </div>
+        <div class="filters">
+          <select id="fCategory"></select>
+          <select id="fKebele"></select>
+          <select id="fStatus"></select>
         </div>
         <div id="tableWrap"></div>
       </div>
     </div>
 
-    <!-- ============ REPORTS & EVALUATION TAB ============ -->
+    <!-- REPORTS TAB -->
     <div id="reportsTab" class="hidden">
-
       <div class="card">
         <div class="toolbar">
           <div>
-            <h2>Summary report</h2>
-            <p class="muted">Live counts across all records and follow-up evaluations.</p>
+            <h2 data-i18n="summaryReport"></h2>
+            <p class="muted" data-i18n="summaryHint"></p>
           </div>
           <div class="actions" style="margin-top:0">
-            <button id="refreshSummaryBtn" class="secondary">Refresh</button>
-            <button id="exportRecordsBtn" class="secondary">Export records CSV</button>
-            <button id="exportEvalBtn" class="secondary">Export evaluations CSV</button>
+            <button id="refreshSummaryBtn" class="secondary" data-i18n="refresh"></button>
+            <button id="exportRecordsBtn" class="secondary" data-i18n="exportRecords"></button>
+            <button id="exportEvalBtn" class="secondary" data-i18n="exportEvals"></button>
           </div>
         </div>
-
         <div id="statGrid" class="stat-grid" style="margin-top:16px"></div>
-
         <div class="breakdown">
-          <div>
-            <h3 style="margin-bottom:4px">By category</h3>
-            <div id="byCategory"></div>
-          </div>
-          <div>
-            <h3 style="margin-bottom:4px">By status</h3>
-            <div id="byStatus"></div>
-          </div>
-          <div>
-            <h3 style="margin-bottom:4px">By kebele</h3>
-            <div id="byKebele"></div>
-          </div>
-          <div>
-            <h3 style="margin-bottom:4px">Evaluation outcomes</h3>
-            <div id="byOutcome"></div>
-          </div>
+          <div><h3 style="margin-bottom:4px" data-i18n="byCategory"></h3><div id="byCategory"></div></div>
+          <div><h3 style="margin-bottom:4px" data-i18n="byStatus"></h3><div id="byStatus"></div></div>
+          <div><h3 style="margin-bottom:4px" data-i18n="byKebele"></h3><div id="byKebele"></div></div>
+          <div><h3 style="margin-bottom:4px" data-i18n="byOutcome"></h3><div id="byOutcome"></div></div>
         </div>
       </div>
 
       <div class="card">
-        <h2 id="evalFormTitle">Add evaluation</h2>
-        <p class="muted">Record a follow-up assessment for any existing record.</p>
+        <h2 id="evalFormTitle" data-i18n="addEval"></h2>
+        <p class="muted" data-i18n="evalHint"></p>
         <form id="evalForm">
           <input id="evalId" type="hidden">
           <div class="grid">
-            <label>Record *
-              <select id="evalRecordId" required></select>
-            </label>
-            <label>Period<input id="evalPeriod" maxlength="40" placeholder="e.g. 2026-09 (defaults to today)"></label>
-            <label>Evaluator<input id="evalEvaluator" maxlength="120"></label>
-            <label>Rating (1-5) *<input id="evalRating" type="number" min="1" max="5" step="1" required></label>
-            <label>Outcome *
+            <label><span data-i18n="record"></span> *<select id="evalRecordId" required></select></label>
+            <label><span data-i18n="period"></span><input id="evalPeriod" maxlength="40" placeholder="2026-09"></label>
+            <label><span data-i18n="evaluator"></span><input id="evalEvaluator" maxlength="120"></label>
+            <label><span data-i18n="rating"></span> *<input id="evalRating" type="number" min="1" max="5" step="1" required></label>
+            <label><span data-i18n="outcome"></span> *
               <select id="evalOutcome" required>
-                <option>Ongoing</option>
-                <option>Resolved</option>
-                <option>Escalated</option>
-                <option>No Action Needed</option>
+                <option value="Ongoing" data-i18n="Ongoing"></option>
+                <option value="Resolved" data-i18n="Resolved"></option>
+                <option value="Escalated" data-i18n="Escalated"></option>
+                <option value="No Action Needed" data-i18n="No Action Needed"></option>
               </select>
             </label>
           </div>
-          <label style="margin-top:14px">Comments<textarea id="evalComments" maxlength="1000"></textarea></label>
+          <label style="margin-top:14px"><span data-i18n="comments"></span><textarea id="evalComments" maxlength="1000"></textarea></label>
           <div class="actions">
-            <button class="primary" type="submit">Save evaluation</button>
-            <button type="button" id="evalCancelBtn" class="secondary">Clear</button>
+            <button class="primary" type="submit" data-i18n="saveEval"></button>
+            <button type="button" id="evalCancelBtn" class="secondary" data-i18n="clear"></button>
           </div>
           <div id="evalFormError" class="error"></div>
         </form>
@@ -224,12 +238,10 @@
       <div class="card">
         <div class="toolbar">
           <div>
-            <h2>Evaluations</h2>
+            <h2 data-i18n="evaluations"></h2>
             <span id="evalCount" class="muted"></span>
           </div>
-          <select id="evalFilterRecord" style="max-width:300px">
-            <option value="">All records</option>
-          </select>
+          <select id="evalFilterRecord" style="max-width:300px"></select>
         </div>
         <div id="evalTableWrap"></div>
       </div>
@@ -241,27 +253,107 @@
 const $ = id => document.getElementById(id);
 let records = [];
 let evaluations = [];
+let lastSummary = null;
 
-// Same-origin API base: this file is served by the same Express app
-// that exposes /api/*, so no absolute URL / CORS is needed.
+// ---------------- Translations ----------------
+const T = {
+  en: {
+    siteTitle: "Shashogo Woreda Integrated Digital System", home: "Home", about: "About", contact: "Contact",
+    adminPanel: "Admin Panel", logout: "Logout", adminLogin: "Administrator login",
+    loginHint: "Sign in to manage SWIDS records.", email: "Email", password: "Password", signIn: "Sign in",
+    tabRecords: "Records", tabReports: "Reports & Evaluation",
+    addRecord: "Add record", editRecord: "Edit record", formHint: "Create and update local administrative records.",
+    newRecord: "New record", name: "Name", category: "Category", categoryPh: "e.g. Citizen, Business",
+    kebele: "Kebele", phone: "Phone", status: "Status", notes: "Notes",
+    Active: "Active", Pending: "Pending", Inactive: "Inactive",
+    personalWork: "Personal and work details", idNumber: "ID number", birthDate: "Date of birth",
+    maritalStatus: "Marital status", hireDate: "Date hired", sector: "Sector", workLine: "Work line",
+    department: "Department", profession: "Profession", experienceYears: "Experience (years)",
+    Single: "Single", Married: "Married", Divorced: "Divorced", Widowed: "Widowed",
+    saveRecord: "Save record", clear: "Clear", searchPh: "Search records...",
+    allCategories: "All categories", allKebeles: "All kebeles", allStatuses: "All statuses",
+    recOne: "{n} record", recMany: "{n} records", noRecords: "No records found.",
+    actions: "Actions", edit: "Edit", del: "Delete",
+    summaryReport: "Summary report", summaryHint: "Live counts across all records and follow-up evaluations.",
+    refresh: "Refresh", exportRecords: "Export records CSV", exportEvals: "Export evaluations CSV",
+    statRecords: "Records", statActive: "Active", statEvals: "Evaluations", statAvg: "Avg. rating",
+    byCategory: "By category", byStatus: "By status", byKebele: "By kebele", byOutcome: "Evaluation outcomes",
+    noData: "No data.", Unspecified: "Unspecified",
+    addEval: "Add evaluation", editEval: "Edit evaluation", evalHint: "Record a follow-up assessment for any existing record.",
+    record: "Record", period: "Period", evaluator: "Evaluator", rating: "Rating (1-5)", outcome: "Outcome",
+    Ongoing: "Ongoing", Resolved: "Resolved", Escalated: "Escalated", "No Action Needed": "No Action Needed",
+    comments: "Comments", saveEval: "Save evaluation", evaluations: "Evaluations",
+    allRecords: "All records", selectRecord: "Select record...",
+    evalOne: "{n} evaluation", evalMany: "{n} evaluations", noEvals: "No evaluations found.",
+    confirmDelete: "Delete this record?", confirmDeleteEval: "Delete this evaluation?"
+  },
+  am: {
+    siteTitle: "ሻሾጎ ወረዳ የተቀናጀ ዲጂታል ሲስተም", home: "መነሻ", about: "ስለ እኛ", contact: "አግኙን",
+    adminPanel: "የአስተዳዳሪ ፓነል", logout: "ውጣ", adminLogin: "የአስተዳዳሪ መግቢያ",
+    loginHint: "መዝገቦችን ለማስተዳደር ይግቡ።", email: "ኢሜይል", password: "የይለፍ ቃል", signIn: "ግባ",
+    tabRecords: "መዝገቦች", tabReports: "ሪፖርት እና ግምገማ",
+    addRecord: "መዝገብ ጨምር", editRecord: "መዝገብ አርም", formHint: "የአካባቢ አስተዳደር መዝገቦችን ይፍጠሩ እና ያሻሽሉ።",
+    newRecord: "አዲስ መዝገብ", name: "ስም", category: "ምድብ", categoryPh: "ለምሳሌ፡ ነዋሪ፣ ንግድ",
+    kebele: "ቀበሌ", phone: "ስልክ", status: "ሁኔታ", notes: "ማስታወሻ",
+    Active: "ንቁ", Pending: "በመጠባበቅ ላይ", Inactive: "ንቁ ያልሆነ",
+    personalWork: "የግል እና የሥራ ዝርዝር", idNumber: "የመታወቂያ ቁጥር", birthDate: "የትውልድ ቀን",
+    maritalStatus: "የትዳር ሁኔታ", hireDate: "የቅጥር ቀን", sector: "ዘርፍ", workLine: "የሥራ መስክ",
+    department: "ክፍል", profession: "ሙያ", experienceYears: "የሥራ ልምድ (በዓመት)",
+    Single: "ያላገባ/ች", Married: "ያገባ/ች", Divorced: "የተፋታ/ች", Widowed: "የትዳር አጋሩ/ሯ የሞተ/ች",
+    saveRecord: "መዝገብ አስቀምጥ", clear: "አጽዳ", searchPh: "መዝገቦችን ፈልግ...",
+    allCategories: "ሁሉም ምድቦች", allKebeles: "ሁሉም ቀበሌዎች", allStatuses: "ሁሉም ሁኔታዎች",
+    recOne: "{n} መዝገብ", recMany: "{n} መዝገቦች", noRecords: "ምንም መዝገብ አልተገኘም።",
+    actions: "ድርጊቶች", edit: "አርም", del: "ሰርዝ",
+    summaryReport: "የማጠቃለያ ሪፖርት", summaryHint: "በሁሉም መዝገቦች እና የክትትል ግምገማዎች ላይ ያሉ ወቅታዊ ቆጠራዎች።",
+    refresh: "አድስ", exportRecords: "መዝገቦችን ላክ (CSV)", exportEvals: "ግምገማዎችን ላክ (CSV)",
+    statRecords: "መዝገቦች", statActive: "ንቁ", statEvals: "ግምገማዎች", statAvg: "አማካይ ደረጃ",
+    byCategory: "በምድብ", byStatus: "በሁኔታ", byKebele: "በቀበሌ", byOutcome: "የግምገማ ውጤቶች",
+    noData: "መረጃ የለም።", Unspecified: "ያልተገለጸ",
+    addEval: "ግምገማ ጨምር", editEval: "ግምገማ አርም", evalHint: "ለማንኛውም መዝገብ የክትትል ግምገማ ይመዝግቡ።",
+    record: "መዝገብ", period: "ወቅት", evaluator: "ገምጋሚ", rating: "ደረጃ (1-5)", outcome: "ውጤት",
+    Ongoing: "በሂደት ላይ", Resolved: "ተፈትቷል", Escalated: "ወደ ላይ ተላልፏል", "No Action Needed": "እርምጃ አያስፈልግም",
+    comments: "አስተያየት", saveEval: "ግምገማ አስቀምጥ", evaluations: "ግምገማዎች",
+    allRecords: "ሁሉም መዝገቦች", selectRecord: "መዝገብ ይምረጡ...",
+    evalOne: "{n} ግምገማ", evalMany: "{n} ግምገማዎች", noEvals: "ምንም ግምገማ አልተገኘም።",
+    confirmDelete: "ይህን መዝገብ መሰረዝ ይፈልጋሉ?", confirmDeleteEval: "ይህን ግምገማ መሰረዝ ይፈልጋሉ?"
+  }
+};
+
+let lang = "en";
+try { lang = localStorage.getItem("swids_lang") || "en"; } catch {}
+const t = k => (T[lang] && T[lang][k]) || T.en[k] || k;
+const plural = (n, one, many) => t(n === 1 ? one : many).replace("{n}", n);
+
+function setT(el, key) { el.dataset.i18n = key; el.textContent = t(key); }
+
+function applyI18n() {
+  document.documentElement.lang = lang === "am" ? "am" : "en";
+  document.querySelectorAll("[data-i18n]").forEach(e => { e.textContent = t(e.dataset.i18n); });
+  document.querySelectorAll("[data-ph]").forEach(e => { e.placeholder = t(e.dataset.ph); });
+  $("langBtn").textContent = lang === "am" ? "English" : "አማርኛ";
+}
+
+$("langBtn").addEventListener("click", () => {
+  lang = lang === "am" ? "en" : "am";
+  try { localStorage.setItem("swids_lang", lang); } catch {}
+  applyI18n();
+  populateRecordSelects();
+  renderRecords();
+  renderEvaluations();
+  if (lastSummary) renderSummary(lastSummary);
+});
+
+// ---------------- API + auth ----------------
 const API_BASE = "";
 
 async function api(url, options = {}) {
   const res = await fetch(API_BASE + url, {
     ...options,
     credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {})
-    }
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) }
   });
-
   const data = await res.json().catch(() => ({}));
-
-  if (!res.ok) {
-    throw new Error(data.error || "Request failed");
-  }
-
+  if (!res.ok) throw new Error(data.error || "Request failed");
   return data;
 }
 
@@ -271,13 +363,17 @@ function setLoggedIn(user) {
   $("logoutBtn").classList.toggle("hidden", !user);
 }
 
+async function loadAll() {
+  await loadRecords();
+  await loadEvaluations();
+  await loadSummary();
+}
+
 async function checkAuth() {
   try {
     const data = await api("/api/me");
     setLoggedIn(data.user);
-    await loadRecords();
-    await loadEvaluations();
-    await loadSummary();
+    await loadAll();
   } catch {
     setLoggedIn(null);
   }
@@ -293,9 +389,7 @@ $("loginForm").addEventListener("submit", async e => {
     });
     setLoggedIn(data.user);
     $("password").value = "";
-    await loadRecords();
-    await loadEvaluations();
-    await loadSummary();
+    await loadAll();
   } catch (err) {
     $("loginError").textContent = err.message;
   }
@@ -306,28 +400,32 @@ $("logoutBtn").addEventListener("click", async () => {
   setLoggedIn(null);
 });
 
-// ---------------- Tabs ----------------
 document.querySelectorAll(".tab-btn").forEach(btn => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     $("recordsTab").classList.toggle("hidden", btn.dataset.tab !== "recordsTab");
     $("reportsTab").classList.toggle("hidden", btn.dataset.tab !== "reportsTab");
-    if (btn.dataset.tab === "reportsTab") {
-      loadSummary();
-      loadEvaluations();
-    }
+    if (btn.dataset.tab === "reportsTab") { loadSummary(); loadEvaluations(); }
   });
 });
 
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+  }[c]));
+}
+
 // ---------------- Records ----------------
+const EXTRA_FIELDS = ["idNumber", "birthDate", "maritalStatus", "hireDate", "sector", "workLine", "department", "profession", "experienceYears"];
+
 async function loadRecords() {
   try {
     const q = $("search").value.trim();
     const data = await api("/api/records" + (q ? "?q=" + encodeURIComponent(q) : ""));
     records = data.records;
-    renderRecords();
     populateRecordSelects();
+    renderRecords();
   } catch (err) {
     if (err.message.includes("Authentication")) setLoggedIn(null);
     alert(err.message);
@@ -341,57 +439,66 @@ function statusClass(s) {
   return "";
 }
 
+function uniqueValues(key) {
+  return [...new Set(records.map(r => (r[key] || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+
+function fillFilter(id, allKey, values, translate) {
+  const el = $(id);
+  const prev = el.value;
+  el.innerHTML = `<option value="">${esc(t(allKey))}</option>` +
+    values.map(v => `<option value="${esc(v)}">${esc(translate ? t(v) : v)}</option>`).join("");
+  el.value = values.includes(prev) ? prev : "";
+}
+
+function filteredRecords() {
+  const c = $("fCategory").value, k = $("fKebele").value, s = $("fStatus").value;
+  return records.filter(r => (!c || r.category === c) && (!k || r.kebele === k) && (!s || r.status === s));
+}
+
 function renderRecords() {
-  $("count").textContent = `${records.length} record${records.length === 1 ? "" : "s"}`;
-  if (!records.length) {
-    $("tableWrap").innerHTML = '<p class="muted">No records found.</p>';
+  const list = filteredRecords();
+  $("count").textContent = plural(list.length, "recOne", "recMany");
+  if (!list.length) {
+    $("tableWrap").innerHTML = `<p class="muted">${esc(t("noRecords"))}</p>`;
     return;
   }
-
   $("tableWrap").innerHTML = `
     <table>
-      <thead><tr><th>Name</th><th>Category</th><th>Kebele</th><th>Phone</th><th>Status</th><th>Actions</th></tr></thead>
-      <tbody>${records.map(r => `
+      <thead><tr><th>${t("name")}</th><th>${t("category")}</th><th>${t("kebele")}</th><th>${t("phone")}</th><th>${t("status")}</th><th>${t("actions")}</th></tr></thead>
+      <tbody>${list.map(r => `
         <tr>
           <td>${esc(r.name)}</td>
           <td>${esc(r.category)}</td>
           <td>${esc(r.kebele)}</td>
           <td>${esc(r.phone)}</td>
-          <td><span class="status ${statusClass(r.status)}">${esc(r.status)}</span></td>
+          <td><span class="status ${statusClass(r.status)}">${esc(t(r.status))}</span></td>
           <td>
-            <button class="secondary" onclick="editRecord('${r.id}')">Edit</button>
-            <button class="danger" onclick="deleteRecord('${r.id}')">Delete</button>
+            <button class="secondary" onclick="editRecord('${r.id}')">${t("edit")}</button>
+            <button class="danger" onclick="deleteRecord('${r.id}')">${t("del")}</button>
           </td>
         </tr>`).join("")}</tbody>
     </table>`;
-}
-
-function esc(value) {
-  return String(value ?? "").replace(/[&<>"']/g, c => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
-  }[c]));
 }
 
 window.editRecord = id => {
   const r = records.find(x => x.id === id);
   if (!r) return;
   $("recordId").value = r.id;
-  $("name").value = r.name;
-  $("category").value = r.category;
-  $("kebele").value = r.kebele;
-  $("phone").value = r.phone;
-  $("status").value = r.status;
-  $("notes").value = r.notes;
-  $("formTitle").textContent = "Edit record";
+  ["name", "category", "kebele", "phone", "status", "notes", ...EXTRA_FIELDS].forEach(f => {
+    $(f).value = r[f] ?? "";
+  });
+  setT($("formTitle"), "editRecord");
   window.scrollTo({ top: 0, behavior: "smooth" });
 };
 
 window.deleteRecord = async id => {
   const r = records.find(x => x.id === id);
-  if (!r || !confirm(`Delete "${r.name}"?`)) return;
+  if (!r || !confirm(`${t("confirmDelete")}\n"${r.name}"`)) return;
   try {
     await api("/api/records/" + encodeURIComponent(id), { method: "DELETE" });
     await loadRecords();
+    await loadSummary();
     clearForm();
   } catch (err) { alert(err.message); }
 };
@@ -400,24 +507,18 @@ function clearForm() {
   $("recordForm").reset();
   $("recordId").value = "";
   $("status").value = "Active";
-  $("formTitle").textContent = "Add record";
+  setT($("formTitle"), "addRecord");
   $("formError").textContent = "";
 }
 
 $("recordForm").addEventListener("submit", async e => {
   e.preventDefault();
   $("formError").textContent = "";
-
   const id = $("recordId").value;
-  const payload = {
-    name: $("name").value,
-    category: $("category").value,
-    kebele: $("kebele").value,
-    phone: $("phone").value,
-    status: $("status").value,
-    notes: $("notes").value
-  };
-
+  const payload = {};
+  ["name", "category", "kebele", "phone", "status", "notes", ...EXTRA_FIELDS].forEach(f => {
+    payload[f] = $(f).value;
+  });
   try {
     await api(id ? "/api/records/" + encodeURIComponent(id) : "/api/records", {
       method: id ? "PUT" : "POST",
@@ -425,6 +526,7 @@ $("recordForm").addEventListener("submit", async e => {
     });
     clearForm();
     await loadRecords();
+    await loadSummary();
   } catch (err) {
     $("formError").textContent = err.message;
   }
@@ -433,23 +535,33 @@ $("recordForm").addEventListener("submit", async e => {
 $("cancelBtn").addEventListener("click", clearForm);
 $("newBtn").addEventListener("click", clearForm);
 $("search").addEventListener("input", () => loadRecords());
+["fCategory", "fKebele", "fStatus"].forEach(id => $(id).addEventListener("change", renderRecords));
 
 // ---------------- Reports & evaluation ----------------
 function populateRecordSelects() {
-  const options = records
-    .slice()
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map(r => `<option value="${r.id}">${esc(r.name)} — ${esc(r.category || "")}</option>`)
-    .join("");
+  fillFilter("fCategory", "allCategories", uniqueValues("category"));
+  fillFilter("fKebele", "allKebeles", uniqueValues("kebele"));
+  fillFilter("fStatus", "allStatuses", ["Active", "Pending", "Inactive"], true);
 
-  $("evalRecordId").innerHTML = '<option value="">Select record...</option>' + options;
-  $("evalFilterRecord").innerHTML = '<option value="">All records</option>' + options;
+  $("categoryList").innerHTML = uniqueValues("category").map(v => `<option value="${esc(v)}">`).join("");
+  $("kebeleList").innerHTML = uniqueValues("kebele").map(v => `<option value="${esc(v)}">`).join("");
+
+  const options = records.slice()
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(r => `<option value="${r.id}">${esc(r.name)} — ${esc(r.category || "")}</option>`).join("");
+
+  const prevSel = $("evalRecordId").value;
+  const prevFilter = $("evalFilterRecord").value;
+  $("evalRecordId").innerHTML = `<option value="">${esc(t("selectRecord"))}</option>` + options;
+  $("evalFilterRecord").innerHTML = `<option value="">${esc(t("allRecords"))}</option>` + options;
+  $("evalRecordId").value = prevSel;
+  $("evalFilterRecord").value = prevFilter;
 }
 
 async function loadSummary() {
   try {
-    const data = await api("/api/reports/summary");
-    renderSummary(data);
+    lastSummary = await api("/api/reports/summary");
+    renderSummary(lastSummary);
   } catch (err) {
     if (err.message.includes("Authentication")) setLoggedIn(null);
   }
@@ -457,12 +569,10 @@ async function loadSummary() {
 
 function renderSummary(s) {
   $("statGrid").innerHTML = `
-    <div class="stat-box"><div class="num">${s.totalRecords}</div><div class="lbl">Records</div></div>
-    <div class="stat-box"><div class="num">${s.activeRecords}</div><div class="lbl">Active</div></div>
-    <div class="stat-box"><div class="num">${s.totalEvaluations}</div><div class="lbl">Evaluations</div></div>
-    <div class="stat-box"><div class="num">${s.averageRating ?? "—"}</div><div class="lbl">Avg. rating</div></div>
-  `;
-
+    <div class="stat-box"><div class="num">${s.totalRecords}</div><div class="lbl">${t("statRecords")}</div></div>
+    <div class="stat-box"><div class="num">${s.activeRecords}</div><div class="lbl">${t("statActive")}</div></div>
+    <div class="stat-box"><div class="num">${s.totalEvaluations}</div><div class="lbl">${t("statEvals")}</div></div>
+    <div class="stat-box"><div class="num">${s.averageRating ?? "—"}</div><div class="lbl">${t("statAvg")}</div></div>`;
   $("byCategory").innerHTML = renderBarList(s.byCategory, s.totalRecords);
   $("byStatus").innerHTML = renderBarList(s.byStatus, s.totalRecords);
   $("byKebele").innerHTML = renderBarList(s.byKebele, s.totalRecords);
@@ -471,12 +581,13 @@ function renderSummary(s) {
 
 function renderBarList(obj, total) {
   const entries = Object.entries(obj || {}).sort((a, b) => b[1] - a[1]);
-  if (!entries.length) return '<p class="muted">No data.</p>';
+  if (!entries.length) return `<p class="muted">${esc(t("noData"))}</p>`;
   return entries.map(([label, count]) => {
     const pct = total ? Math.round((count / total) * 100) : 0;
+    const shown = t(label);
     return `
       <div class="bar-row">
-        <div class="bar-label" title="${esc(label)}">${esc(label)}</div>
+        <div class="bar-label" title="${esc(shown)}">${esc(shown)}</div>
         <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
         <div class="bar-count">${count}</div>
       </div>`;
@@ -501,26 +612,25 @@ async function loadEvaluations() {
 }
 
 function renderEvaluations() {
-  $("evalCount").textContent = `${evaluations.length} evaluation${evaluations.length === 1 ? "" : "s"}`;
+  $("evalCount").textContent = plural(evaluations.length, "evalOne", "evalMany");
   if (!evaluations.length) {
-    $("evalTableWrap").innerHTML = '<p class="muted">No evaluations found.</p>';
+    $("evalTableWrap").innerHTML = `<p class="muted">${esc(t("noEvals"))}</p>`;
     return;
   }
-
   $("evalTableWrap").innerHTML = `
     <table>
-      <thead><tr><th>Record</th><th>Period</th><th>Evaluator</th><th>Rating</th><th>Outcome</th><th>Comments</th><th>Actions</th></tr></thead>
+      <thead><tr><th>${t("record")}</th><th>${t("period")}</th><th>${t("evaluator")}</th><th>${t("rating")}</th><th>${t("outcome")}</th><th>${t("comments")}</th><th>${t("actions")}</th></tr></thead>
       <tbody>${evaluations.map(ev => `
         <tr>
           <td>${esc(ev.recordName)}</td>
           <td>${esc(ev.period)}</td>
           <td>${esc(ev.evaluator)}</td>
           <td><span class="rating-pill ${ratingClass(ev.rating)}">${ev.rating}</span></td>
-          <td>${esc(ev.outcome)}</td>
+          <td>${esc(t(ev.outcome))}</td>
           <td>${esc((ev.comments || "").slice(0, 80))}${(ev.comments || "").length > 80 ? "…" : ""}</td>
           <td>
-            <button class="secondary" onclick="editEvaluation('${ev.id}')">Edit</button>
-            <button class="danger" onclick="deleteEvaluation('${ev.id}')">Delete</button>
+            <button class="secondary" onclick="editEvaluation('${ev.id}')">${t("edit")}</button>
+            <button class="danger" onclick="deleteEvaluation('${ev.id}')">${t("del")}</button>
           </td>
         </tr>`).join("")}</tbody>
     </table>`;
@@ -536,13 +646,13 @@ window.editEvaluation = id => {
   $("evalRating").value = ev.rating ?? "";
   $("evalOutcome").value = ev.outcome || "Ongoing";
   $("evalComments").value = ev.comments || "";
-  $("evalFormTitle").textContent = "Edit evaluation";
-  window.scrollTo({ top: document.querySelector("#reportsTab .card:nth-child(2)").offsetTop - 20, behavior: "smooth" });
+  setT($("evalFormTitle"), "editEval");
+  $("evalForm").scrollIntoView({ behavior: "smooth", block: "start" });
 };
 
 window.deleteEvaluation = async id => {
   const ev = evaluations.find(x => x.id === id);
-  if (!ev || !confirm(`Delete evaluation for "${ev.recordName}" (${ev.period})?`)) return;
+  if (!ev || !confirm(`${t("confirmDeleteEval")}\n"${ev.recordName}" (${ev.period})`)) return;
   try {
     await api("/api/evaluations/" + encodeURIComponent(id), { method: "DELETE" });
     await loadEvaluations();
@@ -555,14 +665,13 @@ function clearEvalForm() {
   $("evalForm").reset();
   $("evalId").value = "";
   $("evalOutcome").value = "Ongoing";
-  $("evalFormTitle").textContent = "Add evaluation";
+  setT($("evalFormTitle"), "addEval");
   $("evalFormError").textContent = "";
 }
 
 $("evalForm").addEventListener("submit", async e => {
   e.preventDefault();
   $("evalFormError").textContent = "";
-
   const id = $("evalId").value;
   const payload = {
     recordId: $("evalRecordId").value,
@@ -572,7 +681,6 @@ $("evalForm").addEventListener("submit", async e => {
     outcome: $("evalOutcome").value,
     comments: $("evalComments").value
   };
-
   try {
     await api(id ? "/api/evaluations/" + encodeURIComponent(id) : "/api/evaluations", {
       method: id ? "PUT" : "POST",
@@ -589,13 +697,10 @@ $("evalForm").addEventListener("submit", async e => {
 $("evalCancelBtn").addEventListener("click", clearEvalForm);
 $("refreshSummaryBtn").addEventListener("click", loadSummary);
 $("evalFilterRecord").addEventListener("change", loadEvaluations);
-$("exportRecordsBtn").addEventListener("click", () => {
-  window.open(API_BASE + "/api/reports/export/records.csv", "_blank");
-});
-$("exportEvalBtn").addEventListener("click", () => {
-  window.open(API_BASE + "/api/reports/export/evaluations.csv", "_blank");
-});
+$("exportRecordsBtn").addEventListener("click", () => window.open(API_BASE + "/api/reports/export/records.csv", "_blank"));
+$("exportEvalBtn").addEventListener("click", () => window.open(API_BASE + "/api/reports/export/evaluations.csv", "_blank"));
 
+applyI18n();
 checkAuth();
 </script>
 </body>

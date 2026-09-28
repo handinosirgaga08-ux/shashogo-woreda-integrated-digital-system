@@ -33,8 +33,7 @@ if (!DATABASE_URL) {
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
-  ssl: /localhost|127\.0\.0\.1/.test(DATABASE_URL) ? false : { rejectUnauthorized: false }
-});
+  ssl: /localhost|127\.0\.0\.1|@dpg-[a-z0-9]+-a[:\/]/.test(DATABASE_URL) ? false : { rejectUnauthorized: false }
 
 app.disable("x-powered-by");
 app.use(helmet({ contentSecurityPolicy: false }));

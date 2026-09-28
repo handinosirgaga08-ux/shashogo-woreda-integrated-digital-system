@@ -5,18 +5,21 @@ const crypto = require("crypto");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const bcrypt = require("bcryptjs");
+const { Pool } = require("pg");
 require("dotenv").config();
 
-
 const app = express();
-app.set('trust proxy', 1);
+app.set("trust proxy", 1);
 const PORT = Number(process.env.PORT || 5000);
+
+// Old JSON files: only used for a one-time import into PostgreSQL.
 const DATA_FILE = path.resolve(process.env.DATA_FILE || "./data/records.json");
 const EVAL_FILE = path.resolve(process.env.EVAL_FILE || "./data/evaluations.json");
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@example.com";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "change-me";
 const SESSION_SECRET = process.env.SESSION_SECRET || "dev-only-change-this-secret";
+const DATABASE_URL = process.env.DATABASE_URL;
 
 if (process.env.NODE_ENV === "production" && SESSION_SECRET === "dev-only-change-this-secret") {
   throw new Error("SESSION_SECRET must be changed in production.");
@@ -24,12 +27,14 @@ if (process.env.NODE_ENV === "production" && SESSION_SECRET === "dev-only-change
 if (process.env.NODE_ENV === "production" && ADMIN_PASSWORD === "change-me") {
   throw new Error("ADMIN_PASSWORD must be changed in production.");
 }
+if (!DATABASE_URL) {
+  throw new Error("DATABASE_URL is required (PostgreSQL connection string).");
+}
 
-fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, "[]", "utf8");
-
-fs.mkdirSync(path.dirname(EVAL_FILE), { recursive: true });
-if (!fs.existsSync(EVAL_FILE)) fs.writeFileSync(EVAL_FILE, "[]", "utf8");
+const pool = new Pool({
+  connectionString: DATABASE_URL,
+  ssl: /localhost|127\.0\.0\.1/.test(DATABASE_URL) ? false : { rejectUnauthorized: false }
+});
 
 app.disable("x-powered-by");
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -45,7 +50,8 @@ const loginLimiter = rateLimit({
   message: { error: "Too many login attempts. Try again later." }
 });
 
-// Lightweight signed cookie session, avoiding a database dependency.
+// ---------------- Session (signed cookie) ----------------
+
 function sign(value) {
   return crypto.createHmac("sha256", SESSION_SECRET).update(value).digest("hex");
 }
@@ -60,14 +66,15 @@ function makeSessionToken(email) {
 
 function readSession(req) {
   const raw = req.headers.cookie || "";
-  const match = raw.match(/(?:^|;\\s*)swids_session=([^;]+)/);
+  const match = raw.match(/(?:^|;\s*)swids_session=([^;]+)/);
   if (!match) return null;
 
   const [payload, signature] = decodeURIComponent(match[1]).split(".");
-  if (!payload || !signature || !crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(sign(payload))
-  )) return null;
+  if (!payload || !signature) return null;
+
+  const a = Buffer.from(signature);
+  const b = Buffer.from(sign(payload));
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
 
   try {
     const session = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
@@ -85,24 +92,146 @@ function requireAuth(req, res, next) {
   next();
 }
 
-function readRecords() {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (err) {
-    console.error("Could not read data:", err);
-    return [];
-  }
+// Catches errors from async routes so the server never crashes.
+const wrap = fn => (req, res, next) =>
+  Promise.resolve(fn(req, res, next)).catch(err => {
+    console.error(err);
+    res.status(500).json({ error: "Server error. Please try again." });
+  });
+
+// ---------------- Database setup ----------------
+
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS records (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      kebele TEXT DEFAULT '',
+      phone TEXT DEFAULT '',
+      status TEXT DEFAULT 'Active',
+      notes TEXT DEFAULT '',
+      id_number TEXT DEFAULT '',
+      birth_date DATE,
+      marital_status TEXT DEFAULT '',
+      hire_date DATE,
+      sector TEXT DEFAULT '',
+      work_line TEXT DEFAULT '',
+      department TEXT DEFAULT '',
+      profession TEXT DEFAULT '',
+      experience_years INTEGER,
+      created_at TIMESTAMPTZ DEFAULT now(),
+      updated_at TIMESTAMPTZ DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS evaluations (
+      id TEXT PRIMARY KEY,
+      record_id TEXT NOT NULL REFERENCES records(id) ON DELETE CASCADE,
+      record_name TEXT DEFAULT '',
+      category TEXT DEFAULT '',
+      kebele TEXT DEFAULT '',
+      period TEXT DEFAULT '',
+      evaluator TEXT DEFAULT '',
+      rating INTEGER NOT NULL,
+      outcome TEXT DEFAULT 'Ongoing',
+      comments TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT now(),
+      updated_at TIMESTAMPTZ DEFAULT now()
+    );
+  `);
+
+  await importLegacyJson();
 }
 
-function writeRecords(records) {
-  const tmp = `${DATA_FILE}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(records, null, 2), "utf8");
-  fs.renameSync(tmp, DATA_FILE);
+// One-time import of old JSON data, only if the table is empty.
+async function importLegacyJson() {
+  const { rows } = await pool.query("SELECT COUNT(*)::int AS n FROM records");
+  if (rows[0].n > 0 || !fs.existsSync(DATA_FILE)) return;
+
+  let oldRecords;
+  try {
+    oldRecords = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+  } catch {
+    return;
+  }
+  if (!Array.isArray(oldRecords)) return;
+
+  const now = new Date().toISOString();
+  for (const r of oldRecords) {
+    try {
+      await pool.query(
+        `INSERT INTO records (id,name,category,kebele,phone,status,notes,created_at,updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (id) DO NOTHING`,
+        [r.id || crypto.randomUUID(), r.name || "", r.category || "", r.kebele || "",
+         r.phone || "", r.status || "Active", r.notes || "",
+         r.createdAt || now, r.updatedAt || r.createdAt || now]
+      );
+    } catch (err) {
+      console.error("Skipped legacy record:", err.message);
+    }
+  }
+
+  if (fs.existsSync(EVAL_FILE)) {
+    try {
+      const oldEvals = JSON.parse(fs.readFileSync(EVAL_FILE, "utf8"));
+      for (const ev of Array.isArray(oldEvals) ? oldEvals : []) {
+        try {
+          await pool.query(
+            `INSERT INTO evaluations (id,record_id,record_name,category,kebele,period,evaluator,rating,outcome,comments,created_at,updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT (id) DO NOTHING`,
+            [ev.id || crypto.randomUUID(), ev.recordId, ev.recordName || "", ev.category || "",
+             ev.kebele || "", ev.period || "", ev.evaluator || "", Number(ev.rating) || 1,
+             ev.outcome || "Ongoing", ev.comments || "",
+             ev.createdAt || now, ev.updatedAt || ev.createdAt || now]
+          );
+        } catch (err) {
+          console.error("Skipped legacy evaluation:", err.message);
+        }
+      }
+    } catch { /* ignore */ }
+  }
+  console.log(`Imported ${oldRecords.length} legacy record(s) from JSON.`);
+}
+
+// ---------------- Records helpers ----------------
+
+const REC_COLS = `id, name, category, kebele, phone, status, notes, id_number,
+  to_char(birth_date,'YYYY-MM-DD') AS birth_date, marital_status,
+  to_char(hire_date,'YYYY-MM-DD') AS hire_date, sector, work_line, department,
+  profession, experience_years, created_at, updated_at`;
+
+function rowToRecord(r) {
+  return {
+    id: r.id,
+    name: r.name,
+    category: r.category,
+    kebele: r.kebele,
+    phone: r.phone,
+    status: r.status,
+    notes: r.notes,
+    idNumber: r.id_number,
+    birthDate: r.birth_date,
+    maritalStatus: r.marital_status,
+    hireDate: r.hire_date,
+    sector: r.sector,
+    workLine: r.work_line,
+    department: r.department,
+    profession: r.profession,
+    experienceYears: r.experience_years,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at
+  };
 }
 
 function cleanText(value, max = 500) {
   return String(value ?? "").trim().slice(0, max);
+}
+
+function cleanDate(value) {
+  const v = cleanText(value, 10);
+  if (!v) return { value: null };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(Date.parse(v))) return { error: true };
+  return { value: v };
 }
 
 function validateRecord(body) {
@@ -112,46 +241,82 @@ function validateRecord(body) {
     kebele: cleanText(body.kebele, 100),
     phone: cleanText(body.phone, 40),
     status: cleanText(body.status, 40),
-    notes: cleanText(body.notes, 1000)
+    notes: cleanText(body.notes, 1000),
+    idNumber: cleanText(body.idNumber, 50),
+    maritalStatus: cleanText(body.maritalStatus, 30),
+    sector: cleanText(body.sector, 100),
+    workLine: cleanText(body.workLine, 100),
+    department: cleanText(body.department, 100),
+    profession: cleanText(body.profession, 100)
   };
 
   if (!record.name) return { error: "Name is required." };
   if (!record.category) return { error: "Category is required." };
   if (!record.status) record.status = "Active";
 
+  const birth = cleanDate(body.birthDate);
+  if (birth.error) return { error: "Date of birth is not a valid date." };
+  record.birthDate = birth.value;
+
+  const hire = cleanDate(body.hireDate);
+  if (hire.error) return { error: "Date hired is not a valid date." };
+  record.hireDate = hire.value;
+
+  const expRaw = cleanText(body.experienceYears, 3);
+  if (expRaw === "") {
+    record.experienceYears = null;
+  } else {
+    const exp = Number(expRaw);
+    if (!Number.isInteger(exp) || exp < 0 || exp > 60) {
+      return { error: "Experience must be a whole number between 0 and 60." };
+    }
+    record.experienceYears = exp;
+  }
+
   return { record };
 }
 
-function readEvaluations() {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(EVAL_FILE, "utf8"));
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (err) {
-    console.error("Could not read evaluations:", err);
-    return [];
-  }
+// Order matches the $2..$16 placeholders below ($1 is the id).
+function recordParams(r) {
+  return [
+    r.name, r.category, r.kebele, r.phone, r.status, r.notes,
+    r.idNumber, r.birthDate, r.maritalStatus, r.hireDate,
+    r.sector, r.workLine, r.department, r.profession, r.experienceYears
+  ];
 }
 
-function writeEvaluations(evaluations) {
-  const tmp = `${EVAL_FILE}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(evaluations, null, 2), "utf8");
-  fs.renameSync(tmp, EVAL_FILE);
-}
+// ---------------- Evaluations helpers ----------------
 
 const EVAL_OUTCOMES = ["Resolved", "Ongoing", "Escalated", "No Action Needed"];
 
-// An "evaluation" here is a follow-up assessment tied to any existing
-// record (citizen, business, etc.) — not a staff performance review.
-function validateEvaluation(body, allRecords) {
+function rowToEvaluation(r) {
+  return {
+    id: r.id,
+    recordId: r.record_id,
+    recordName: r.record_name,
+    category: r.category,
+    kebele: r.kebele,
+    period: r.period,
+    evaluator: r.evaluator,
+    rating: r.rating,
+    outcome: r.outcome,
+    comments: r.comments,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at
+  };
+}
+
+async function validateEvaluation(body) {
   const recordId = cleanText(body.recordId, 60);
-  const record = allRecords.find(r => r.id === recordId);
+  const found = await pool.query("SELECT id, name, category, kebele FROM records WHERE id = $1", [recordId]);
+  const record = found.rows[0];
   if (!record) return { error: "Select a valid record to evaluate." };
 
   const period = cleanText(body.period, 40) || new Date().toISOString().slice(0, 10);
 
   const rating = Number(body.rating);
-  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
-    return { error: "Rating must be a number between 1 and 5." };
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return { error: "Rating must be a whole number between 1 and 5." };
   }
 
   const outcome = cleanText(body.outcome, 40) || "Ongoing";
@@ -159,20 +324,22 @@ function validateEvaluation(body, allRecords) {
     return { error: `Outcome must be one of: ${EVAL_OUTCOMES.join(", ")}.` };
   }
 
-  const evaluation = {
-    recordId,
-    recordName: record.name,
-    category: record.category,
-    kebele: record.kebele,
-    period,
-    evaluator: cleanText(body.evaluator, 120),
-    rating,
-    outcome,
-    comments: cleanText(body.comments, 1000)
+  return {
+    evaluation: {
+      recordId,
+      recordName: record.name,
+      category: record.category,
+      kebele: record.kebele,
+      period,
+      evaluator: cleanText(body.evaluator, 120),
+      rating,
+      outcome,
+      comments: cleanText(body.comments, 1000)
+    }
   };
-
-  return { evaluation };
 }
+
+// ---------------- CSV / reporting helpers ----------------
 
 function toCsv(rows, columns) {
   const escapeCsv = value => {
@@ -187,7 +354,8 @@ function toCsv(rows, columns) {
 function sendCsv(res, filename, csv) {
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-  res.send(csv);
+  // BOM so Excel shows Amharic/UTF-8 text correctly.
+  res.send("\uFEFF" + csv);
 }
 
 function countBy(list, fn) {
@@ -199,9 +367,12 @@ function countBy(list, fn) {
   return counts;
 }
 
-app.get("/api/health", (req, res) => {
-  res.json({ ok: true, service: "SWIDS", time: new Date().toISOString() });
-});
+// ---------------- Routes: health & auth ----------------
+
+app.get("/api/health", wrap(async (req, res) => {
+  await pool.query("SELECT 1");
+  res.json({ ok: true, service: "SWIDS", db: "connected", time: new Date().toISOString() });
+}));
 
 app.post("/api/login", loginLimiter, async (req, res) => {
   const email = cleanText(req.body.email, 200).toLowerCase();
@@ -211,7 +382,6 @@ app.post("/api/login", loginLimiter, async (req, res) => {
     return res.status(401).json({ error: "Invalid email or password." });
   }
 
-  // Supports a plain env password for the starter while comparing safely.
   const valid = await bcrypt.compare(password, await bcrypt.hash(ADMIN_PASSWORD, 10));
   if (!valid) return res.status(401).json({ error: "Invalid email or password." });
 
@@ -224,10 +394,7 @@ app.post("/api/login", loginLimiter, async (req, res) => {
 });
 
 app.post("/api/logout", (req, res) => {
-  res.setHeader(
-    "Set-Cookie",
-    "swids_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"
-  );
+  res.setHeader("Set-Cookie", "swids_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
   res.json({ ok: true });
 });
 
@@ -235,177 +402,162 @@ app.get("/api/me", requireAuth, (req, res) => {
   res.json({ authenticated: true, user: { email: req.user.email } });
 });
 
-app.get("/api/records", requireAuth, (req, res) => {
-  const q = cleanText(req.query.q, 100).toLowerCase();
-  let records = readRecords();
+// ---------------- Routes: records ----------------
 
-  if (q) {
-    records = records.filter(r =>
-      [r.name, r.category, r.kebele, r.phone, r.status, r.notes]
-        .some(v => String(v || "").toLowerCase().includes(q))
-    );
-  }
+app.get("/api/records", requireAuth, wrap(async (req, res) => {
+  const q = cleanText(req.query.q, 100);
+  const { rows } = await pool.query(
+    `SELECT ${REC_COLS} FROM records
+     WHERE ($1::text = '' OR concat_ws(' ', name, category, kebele, phone, status, notes,
+            id_number, marital_status, sector, work_line, department, profession)
+            ILIKE '%' || $1 || '%')
+     ORDER BY updated_at DESC`,
+    [q]
+  );
+  res.json({ records: rows.map(rowToRecord) });
+}));
 
-  records.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
-  res.json({ records });
-});
-
-app.post("/api/records", requireAuth, (req, res) => {
+app.post("/api/records", requireAuth, wrap(async (req, res) => {
   const result = validateRecord(req.body);
   if (result.error) return res.status(400).json({ error: result.error });
 
-  const now = new Date().toISOString();
-  const record = {
-    id: crypto.randomUUID(),
-    ...result.record,
-    createdAt: now,
-    updatedAt: now
-  };
+  const { rows } = await pool.query(
+    `INSERT INTO records
+       (id, name, category, kebele, phone, status, notes, id_number, birth_date,
+        marital_status, hire_date, sector, work_line, department, profession, experience_years)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+     RETURNING ${REC_COLS}`,
+    [crypto.randomUUID(), ...recordParams(result.record)]
+  );
+  res.status(201).json({ record: rowToRecord(rows[0]) });
+}));
 
-  const records = readRecords();
-  records.push(record);
-  writeRecords(records);
-  res.status(201).json({ record });
-});
-
-app.put("/api/records/:id", requireAuth, (req, res) => {
+app.put("/api/records/:id", requireAuth, wrap(async (req, res) => {
   const result = validateRecord(req.body);
   if (result.error) return res.status(400).json({ error: result.error });
 
-  const records = readRecords();
-  const index = records.findIndex(r => r.id === req.params.id);
-  if (index === -1) return res.status(404).json({ error: "Record not found." });
+  const { rows } = await pool.query(
+    `UPDATE records SET
+       name=$2, category=$3, kebele=$4, phone=$5, status=$6, notes=$7,
+       id_number=$8, birth_date=$9, marital_status=$10, hire_date=$11,
+       sector=$12, work_line=$13, department=$14, profession=$15,
+       experience_years=$16, updated_at=now()
+     WHERE id=$1
+     RETURNING ${REC_COLS}`,
+    [req.params.id, ...recordParams(result.record)]
+  );
+  if (!rows.length) return res.status(404).json({ error: "Record not found." });
+  res.json({ record: rowToRecord(rows[0]) });
+}));
 
-  records[index] = {
-    ...records[index],
-    ...result.record,
-    updatedAt: new Date().toISOString()
-  };
-
-  writeRecords(records);
-  res.json({ record: records[index] });
-});
-
-app.delete("/api/records/:id", requireAuth, (req, res) => {
-  const records = readRecords();
-  const filtered = records.filter(r => r.id !== req.params.id);
-
-  if (filtered.length === records.length) {
-    return res.status(404).json({ error: "Record not found." });
-  }
-
-  writeRecords(filtered);
+app.delete("/api/records/:id", requireAuth, wrap(async (req, res) => {
+  const { rowCount } = await pool.query("DELETE FROM records WHERE id = $1", [req.params.id]);
+  if (!rowCount) return res.status(404).json({ error: "Record not found." });
   res.json({ ok: true });
-});
+}));
 
-// ---------------- Evaluations (follow-up assessments on records) ----------------
+// ---------------- Routes: evaluations ----------------
 
-app.get("/api/evaluations", requireAuth, (req, res) => {
+app.get("/api/evaluations", requireAuth, wrap(async (req, res) => {
   const recordId = cleanText(req.query.recordId, 60);
-  let evaluations = readEvaluations();
+  const { rows } = await pool.query(
+    `SELECT * FROM evaluations
+     WHERE ($1::text = '' OR record_id = $1)
+     ORDER BY updated_at DESC`,
+    [recordId]
+  );
+  res.json({ evaluations: rows.map(rowToEvaluation) });
+}));
 
-  if (recordId) {
-    evaluations = evaluations.filter(ev => ev.recordId === recordId);
-  }
-
-  evaluations.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
-  res.json({ evaluations });
-});
-
-app.post("/api/evaluations", requireAuth, (req, res) => {
-  const allRecords = readRecords();
-  const result = validateEvaluation(req.body, allRecords);
+app.post("/api/evaluations", requireAuth, wrap(async (req, res) => {
+  const result = await validateEvaluation(req.body);
   if (result.error) return res.status(400).json({ error: result.error });
+  const e = result.evaluation;
 
-  const now = new Date().toISOString();
-  const evaluation = {
-    id: crypto.randomUUID(),
-    ...result.evaluation,
-    createdAt: now,
-    updatedAt: now
-  };
+  const { rows } = await pool.query(
+    `INSERT INTO evaluations
+       (id, record_id, record_name, category, kebele, period, evaluator, rating, outcome, comments)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+     RETURNING *`,
+    [crypto.randomUUID(), e.recordId, e.recordName, e.category, e.kebele,
+     e.period, e.evaluator, e.rating, e.outcome, e.comments]
+  );
+  res.status(201).json({ evaluation: rowToEvaluation(rows[0]) });
+}));
 
-  const evaluations = readEvaluations();
-  evaluations.push(evaluation);
-  writeEvaluations(evaluations);
-  res.status(201).json({ evaluation });
-});
-
-app.put("/api/evaluations/:id", requireAuth, (req, res) => {
-  const allRecords = readRecords();
-  const result = validateEvaluation(req.body, allRecords);
+app.put("/api/evaluations/:id", requireAuth, wrap(async (req, res) => {
+  const result = await validateEvaluation(req.body);
   if (result.error) return res.status(400).json({ error: result.error });
+  const e = result.evaluation;
 
-  const evaluations = readEvaluations();
-  const index = evaluations.findIndex(ev => ev.id === req.params.id);
-  if (index === -1) return res.status(404).json({ error: "Evaluation not found." });
+  const { rows } = await pool.query(
+    `UPDATE evaluations SET
+       record_id=$2, record_name=$3, category=$4, kebele=$5, period=$6,
+       evaluator=$7, rating=$8, outcome=$9, comments=$10, updated_at=now()
+     WHERE id=$1
+     RETURNING *`,
+    [req.params.id, e.recordId, e.recordName, e.category, e.kebele,
+     e.period, e.evaluator, e.rating, e.outcome, e.comments]
+  );
+  if (!rows.length) return res.status(404).json({ error: "Evaluation not found." });
+  res.json({ evaluation: rowToEvaluation(rows[0]) });
+}));
 
-  evaluations[index] = {
-    ...evaluations[index],
-    ...result.evaluation,
-    updatedAt: new Date().toISOString()
-  };
-
-  writeEvaluations(evaluations);
-  res.json({ evaluation: evaluations[index] });
-});
-
-app.delete("/api/evaluations/:id", requireAuth, (req, res) => {
-  const evaluations = readEvaluations();
-  const filtered = evaluations.filter(ev => ev.id !== req.params.id);
-
-  if (filtered.length === evaluations.length) {
-    return res.status(404).json({ error: "Evaluation not found." });
-  }
-
-  writeEvaluations(filtered);
+app.delete("/api/evaluations/:id", requireAuth, wrap(async (req, res) => {
+  const { rowCount } = await pool.query("DELETE FROM evaluations WHERE id = $1", [req.params.id]);
+  if (!rowCount) return res.status(404).json({ error: "Evaluation not found." });
   res.json({ ok: true });
-});
+}));
 
-// ---------------- Reporting ----------------
+// ---------------- Routes: reporting ----------------
 
-app.get("/api/reports/summary", requireAuth, (req, res) => {
-  const records = readRecords();
-  const evaluations = readEvaluations();
+app.get("/api/reports/summary", requireAuth, wrap(async (req, res) => {
+  const recs = (await pool.query("SELECT category, status, kebele FROM records")).rows;
+  const evals = (await pool.query("SELECT rating, outcome FROM evaluations")).rows;
 
-  const activeRecords = records.filter(r => r.status === "Active").length;
-
-  const averageRating = evaluations.length
-    ? Number(
-        (evaluations.reduce((sum, ev) => sum + Number(ev.rating || 0), 0) / evaluations.length).toFixed(2)
-      )
+  const averageRating = evals.length
+    ? Number((evals.reduce((s, e) => s + Number(e.rating || 0), 0) / evals.length).toFixed(2))
     : null;
 
   res.json({
-    totalRecords: records.length,
-    activeRecords,
-    totalEvaluations: evaluations.length,
+    totalRecords: recs.length,
+    activeRecords: recs.filter(r => r.status === "Active").length,
+    totalEvaluations: evals.length,
     averageRating,
-    byCategory: countBy(records, r => r.category),
-    byStatus: countBy(records, r => r.status),
-    byKebele: countBy(records, r => r.kebele),
-    byOutcome: countBy(evaluations, ev => ev.outcome)
+    byCategory: countBy(recs, r => r.category),
+    byStatus: countBy(recs, r => r.status),
+    byKebele: countBy(recs, r => r.kebele),
+    byOutcome: countBy(evals, e => e.outcome)
   });
-});
+}));
 
-app.get("/api/reports/export/records.csv", requireAuth, (req, res) => {
-  const records = readRecords();
-  const csv = toCsv(records, [
+app.get("/api/reports/export/records.csv", requireAuth, wrap(async (req, res) => {
+  const { rows } = await pool.query(`SELECT ${REC_COLS} FROM records ORDER BY name`);
+  const csv = toCsv(rows.map(rowToRecord), [
     { key: "name", label: "Name" },
     { key: "category", label: "Category" },
     { key: "kebele", label: "Kebele" },
     { key: "phone", label: "Phone" },
     { key: "status", label: "Status" },
+    { key: "idNumber", label: "ID Number" },
+    { key: "birthDate", label: "Date of Birth" },
+    { key: "maritalStatus", label: "Marital Status" },
+    { key: "hireDate", label: "Date Hired" },
+    { key: "sector", label: "Sector" },
+    { key: "workLine", label: "Work Line" },
+    { key: "department", label: "Department" },
+    { key: "profession", label: "Profession" },
+    { key: "experienceYears", label: "Experience (years)" },
     { key: "notes", label: "Notes" },
     { key: "createdAt", label: "Created At" },
     { key: "updatedAt", label: "Updated At" }
   ]);
   sendCsv(res, "records.csv", csv);
-});
+}));
 
-app.get("/api/reports/export/evaluations.csv", requireAuth, (req, res) => {
-  const evaluations = readEvaluations();
-  const csv = toCsv(evaluations, [
+app.get("/api/reports/export/evaluations.csv", requireAuth, wrap(async (req, res) => {
+  const { rows } = await pool.query("SELECT * FROM evaluations ORDER BY updated_at DESC");
+  const csv = toCsv(rows.map(rowToEvaluation), [
     { key: "recordName", label: "Record" },
     { key: "category", label: "Category" },
     { key: "kebele", label: "Kebele" },
@@ -417,25 +569,33 @@ app.get("/api/reports/export/evaluations.csv", requireAuth, (req, res) => {
     { key: "updatedAt", label: "Last Updated" }
   ]);
   sendCsv(res, "evaluations.csv", csv);
-});
+}));
 
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`SWIDS running on http://localhost:${PORT}`);
-});
+// ---------------- Start ----------------
 
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  server.close(() => {
-    console.log('HTTP server closed');
-    process.exit(0);
+let server;
+initDb()
+  .then(() => {
+    server = app.listen(PORT, () => {
+      console.log(`SWIDS running on http://localhost:${PORT} (PostgreSQL connected)`);
+    });
+  })
+  .catch(err => {
+    console.error("Database setup failed:", err);
+    process.exit(1);
   });
 
+process.on("SIGTERM", () => {
+  console.log("SIGTERM received, shutting down gracefully");
+  const done = () => pool.end().finally(() => process.exit(0));
+  if (server) server.close(done); else done();
+
   setTimeout(() => {
-    console.error('Forced shutdown after timeout');
+    console.error("Forced shutdown after timeout");
     process.exit(1);
   }, 10000);
 });

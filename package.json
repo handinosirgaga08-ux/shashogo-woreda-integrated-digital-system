@@ -1,8 +1,26 @@
 {
-  "name": "swids",
+  "name": "@handinosirgaga08-ux/swids",
   "version": "1.0.0",
   "description": "Shashogo Woreda Integrated Digital System starter implementation",
   "main": "server.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/handinosirgaga08-ux/shashogo-woreda-integrated-digital-system.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "files": [
+    "server.js",
+    "admin_panel.html",
+    "admin.html",
+    "index.html",
+    "manifest.json",
+    "sw.js",
+    "icon-192.png",
+    "icon-512.png",
+    "public"
+  ],
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js"

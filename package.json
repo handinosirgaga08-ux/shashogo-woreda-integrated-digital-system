@@ -1,6 +1,6 @@
 {
   "name": "@handinosirgaga08-ux/swids",
-  "version": "1.0.2"
+  "version": "1.0.2",
   "description": "Shashogo Woreda Integrated Digital System starter implementation",
   "main": "server.js",
   "repository": {

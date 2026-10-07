@@ -40,13 +40,13 @@ The Shashogo Woreda Integrated Digital System is a unified e-government platform
 
 Follow the steps below to set up the project locally.
 
-## Prerequisites
+### Prerequisites
 
 - Node.js (v18 or higher)
 - npm
 - Docker (optional, for containerized deployment)
 
-## Installation
+### Installation
 
 ```bash
 git clone https://github.com/handinosirgaga08-ux/shashogo-woreda-integrated-digital-system.git
@@ -55,3 +55,22 @@ cd shashogo-woreda-integrated-digital-system
 npm install
 # run the project
 node server.js
+```
+
+## Install as a Package
+
+This package is hosted on GitHub Packages.
+
+1. Create a GitHub personal access token with the `read:packages` scope.
+2. Add this to your project's `.npmrc` file:
+
+```
+@handinosirgaga08-ux:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=YOUR_TOKEN
+```
+
+3. Install:
+
+```
+npm install @handinosirgaga08-ux/swids
+```

@@ -1,3 +1,5 @@
+![Shashogo Woreda Integrated Digital System](boyo-lake.jpg)
+
 # Shashogo Woreda Integrated Digital System
 
 **Domain:** [shashogo.gov.et](https://shashogo.gov.et)

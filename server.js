@@ -617,8 +617,6 @@ process.on("SIGTERM", () => {
   }, 10000);
 });
 
-  });
-
 // ---------------- Database setup ----------------
 
 async function initDb() {

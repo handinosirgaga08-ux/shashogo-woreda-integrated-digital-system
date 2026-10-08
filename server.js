@@ -49,6 +49,9 @@ app.get("/manifest.json", (req, res) => res.sendFile(path.join(__dirname, "manif
 app.get("/icon-192.png", (req, res) => res.sendFile(path.join(__dirname, "icon-192.png")));
 app.get("/icon-512.png", (req, res) => res.sendFile(path.join(__dirname, "icon-512.png")));
 app.get("/sw.js", (req, res) => res.sendFile(path.join(__dirname, "sw.js")));
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many login attempts. Try again later." }

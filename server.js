@@ -45,10 +45,10 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, "public"), { extensions: ["html"], index: false }));
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "public", "home.html")));
-app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 20,
+app.get("/manifest.json", (req, res) => res.sendFile(path.join(__dirname, "manifest.json")));
+app.get("/icon-192.png", (req, res) => res.sendFile(path.join(__dirname, "icon-192.png")));
+app.get("/icon-512.png", (req, res) => res.sendFile(path.join(__dirname, "icon-512.png")));
+app.get("/sw.js", (req, res) => res.sendFile(path.join(__dirname, "sw.js")));
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many login attempts. Try again later." }

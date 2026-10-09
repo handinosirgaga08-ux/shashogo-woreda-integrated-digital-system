@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shashogo Woreda Integrated Digital System</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta name="theme-color" content="#2272ab">
+<style>
+:root{--navy:#10223a;--blue:#1d7fc4;--ink:#16212e;--muted:#55657a;--bg:#f3f6f9;--card:#fff;--line:#dde5ee}
+@media (prefers-color-scheme:dark){:root{--ink:#e8eef5;--muted:#9fb0c3;--bg:#0c1522;--card:#14233a;--line:#243a57}}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.6}
+header{background:var(--navy);color:#fff;padding:16px 20px}
+header h1{margin:0 0 8px;font-size:1.25rem}
+nav a{color:#cfe3f5;text-decoration:none;margin-right:16px;font-size:.95rem}
+nav a:hover,nav a:focus-visible{color:#fff;text-decoration:underline}
+main{max-width:960px;margin:0 auto;padding:24px 16px 48px}
+.hero{background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff;border-radius:16px;padding:32px 24px;text-align:center}
+.hero .logo{width:72px;height:72px;border-radius:20px;background:var(--blue);border:3px solid #fff3;display:grid;place-items:center;margin:0 auto 14px;font:italic 800 17px Arial,sans-serif}
+.hero h2{margin:0 0 8px;font-size:1.6rem}
+.hero p{margin:0 auto;max-width:560px;opacity:.92}
+section{margin-top:28px}
+h3{font-size:1.2rem;margin:0 0 6px}
+.lead{color:var(--muted);margin:0 0 16px}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+.card h4{margin:6px 0 4px;font-size:1rem}
+.card p{margin:0;color:var(--muted);font-size:.93rem}
+.ico{font-size:1.6rem}
+.purpose{background:var(--card);border-left:5px solid var(--blue);border-radius:8px;padding:18px 20px}
+.purpose p{margin:0}
+.lake{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.lake .pic{height:200px;background:linear-gradient(160deg,#2f8f6b,#1d7fc4);display:flex;align-items:flex-end}
+.lake .pic img{width:100%;height:100%;object-fit:cover;display:block}
+.lake .body{padding:20px 22px}
+.tags{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-weight:600}
+.dev{display:flex;gap:16px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+.avatar{flex:none;width:64px;height:64px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:700;font-size:1.3rem}
+.dev p{margin:2px 0;color:var(--muted);font-size:.93rem}
+footer{text-align:center;color:var(--muted);font-size:.85rem;padding:20px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Shashogo Woreda Integrated Digital System</h1>
+  <nav><a href="/">Home</a><a href="#about">About</a><a href="#contact">Contact</a><a href="/admin_panel.html">Admin Panel</a></nav>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="logo">SWIDS</div>
+    <h2>Welcome to SWIDS</h2>
+    <p>The official digital portal for Shashogo Woreda administrative records, built to make local government services faster, organized and transparent.</p>
+  </div>
+
+  <section id="about">
+    <h3>About the Software</h3>
+    <p class="lead">SWIDS brings the Woreda's records and daily administrative work into one secure system.</p>
+    <div class="purpose">
+      <p><strong>Purpose:</strong> to replace scattered paper files with a single digital system where officials can register, store, search and manage administrative records accurately, and where residents get quicker, more reliable service.</p>
+    </div>
+  </section>
+
+  <section>
+    <h3>Key Benefits</h3>
+    <div class="grid" style="margin-top:12px">
+      <div class="card"><div class="ico">⚡</div><h4>Faster service</h4><p>Find and update records in seconds instead of searching through paper files.</p></div>
+      <div class="card"><div class="ico">🔒</div><h4>Secure records</h4><p>Role-based admin access keeps sensitive data protected from unauthorized changes.</p></div>
+      <div class="card"><div class="ico">🗂️</div><h4>Organized data</h4><p>All records are kept in one central place, reducing loss, duplication and errors.</p></div>
+      <div class="card"><div class="ico">🔍</div><h4>Transparency</h4><p>Clear, traceable records support accountability and public trust.</p></div>
+      <div class="card"><div class="ico">📱</div><h4>Accessible anywhere</h4><p>Works on phones and computers, with a mobile app for easy daily use.</p></div>
+      <div class="card"><div class="ico">📊</div><h4>Better decisions</h4><p>Accurate, up-to-date information helps leaders plan and report with confidence.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="lake">
+      <div class="pic"><img src="/file_000000000c3082119c1ef7eab56a92a8.png" alt="Boyo Lake, Shashogo Woreda" onerror="this.style.display='none'"></div>
+      <div class="body">
+        <h3>Boyo Lake: Nature's Beauty, Our Pride</h3>
+        <p class="lead" style="margin:0">Boyo Lake is one of Shashogo Woreda's most treasured natural landmarks. It offers breathtaking scenery, rich biodiversity and growing ecotourism potential. The Woreda is committed to preserving this natural heritage while developing sustainable tourism that benefits residents and visitors alike.</p>
+        <div class="tags"><span>📷 Tourism</span><span>🌿 Nature</span><span>🤝 Community</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="contact">
+    <h3>About the Developer</h3>
+    <div class="dev" style="margin-top:12px">
+      <div class="avatar">SG</div>
+      <div>
+        <strong>Sirgaga Handino Giboro</strong>
+        <p>Software Developer, designer of SWIDS</p>
+        <p>Built to support digital transformation in local administration.</p>
+        <p>📧 Sirgagahandino946@gmail.com · 📞 +251 920 991 644</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>© 2026 Shashogo Woreda Integrated Digital System (SWIDS). All rights reserved.</footer>
+</body>
+</html>

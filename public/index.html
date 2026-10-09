@@ -19,7 +19,8 @@
     header h1 { margin:0 0 10px; font-size:24px; }
     nav a { color:white; margin-right:20px; text-decoration:none; }
     nav a:hover { text-decoration:underline; }
-    .header-tools { display:flex; gap:8px; align-items:center; }
+    .header-tools { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .whoami { font-size:13px; opacity:.85; }
     .lang-btn { background:#fff; color:var(--navy); }
     main { max-width:1200px; margin:24px auto; padding:0 16px; }
     .banner-card { background:var(--card); border-radius:16px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,0.08); margin-bottom:18px; }
@@ -31,6 +32,7 @@
     .section-title { font-size:15px; margin:20px 0 10px; color:var(--navy); border-top:1px solid #eaecf0; padding-top:14px; }
     label { display:block; font-size:14px; font-weight:600; margin-bottom:6px; }
     input, select, textarea { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font:inherit; }
+    select:disabled { background:#f2f4f7; color:#475467; }
     textarea { min-height:90px; resize:vertical; }
     button { border:0; border-radius:8px; padding:10px 14px; cursor:pointer; font-weight:600; font-family:inherit; }
     .primary { background:var(--primary); color:white; }
@@ -47,7 +49,7 @@
     .status.inactive { background:#eaecf0; color:#475467; }
     .error { color:var(--danger); margin-top:8px; }
     .muted { color:var(--muted); }
-    .tabs { display:flex; gap:6px; margin-bottom:16px; }
+    .tabs { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
     .tab-btn { background:#eaecf0; color:#344054; padding:9px 16px; border-radius:8px; }
     .tab-btn.active { background:var(--primary); color:#fff; }
     .stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
@@ -64,6 +66,10 @@
     .rating-high { background:#ecfdf3; color:#027a48; }
     .rating-mid { background:#fff4e0; color:#93650a; }
     .rating-low { background:#fee4e2; color:#b42318; }
+    .list-row { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid #eaecf0; flex-wrap:wrap; }
+    .add-row { display:flex; gap:8px; margin-top:10px; }
+    .add-row input { flex:1; }
+    .setup-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:18px; }
     @media(max-width:700px) {
       .grid { grid-template-columns:1fr; }
       table { display:block; overflow:auto; white-space:nowrap; }
@@ -85,6 +91,7 @@
     </nav>
   </div>
   <div class="header-tools">
+    <span id="whoami" class="whoami"></span>
     <button id="langBtn" class="lang-btn" type="button" aria-label="Language">አማርኛ</button>
     <button id="logoutBtn" class="secondary hidden" data-i18n="logout"></button>
   </div>
@@ -110,6 +117,7 @@
     <div class="tabs">
       <button class="tab-btn active" data-tab="recordsTab" data-i18n="tabRecords"></button>
       <button class="tab-btn" data-tab="reportsTab" data-i18n="tabReports"></button>
+      <button id="setupTabBtn" class="tab-btn hidden" data-tab="setupTab" data-i18n="tabSetup"></button>
     </div>
 
     <!-- RECORDS TAB -->
@@ -128,7 +136,7 @@
           <div class="grid">
             <label><span data-i18n="name"></span> *<input id="name" required maxlength="120"></label>
             <label><span data-i18n="category"></span> *<input id="category" required maxlength="80" list="categoryList" data-ph="categoryPh"></label>
-            <label><span data-i18n="kebele"></span><input id="kebele" maxlength="100" list="kebeleList"></label>
+            <label><span data-i18n="kebele"></span><select id="kebele"></select></label>
             <label><span data-i18n="phone"></span><input id="phone" type="tel" maxlength="40" inputmode="tel" placeholder="09XXXXXXXX"></label>
             <label><span data-i18n="status"></span>
               <select id="status">
@@ -139,7 +147,6 @@
             </label>
           </div>
           <datalist id="categoryList"></datalist>
-          <datalist id="kebeleList"></datalist>
 
           <h3 class="section-title" data-i18n="personalWork"></h3>
           <div class="grid">
@@ -155,7 +162,7 @@
               </select>
             </label>
             <label><span data-i18n="hireDate"></span><input id="hireDate" type="date"></label>
-            <label><span data-i18n="sector"></span><input id="sector" maxlength="100"></label>
+            <label><span data-i18n="sector"></span><select id="sector"></select></label>
             <label><span data-i18n="workLine"></span><input id="workLine" maxlength="100"></label>
             <label><span data-i18n="department"></span><input id="department" maxlength="100"></label>
             <label><span data-i18n="profession"></span><input id="profession" maxlength="100"></label>
@@ -207,6 +214,7 @@
           <div><h3 style="margin-bottom:4px" data-i18n="byCategory"></h3><div id="byCategory"></div></div>
           <div><h3 style="margin-bottom:4px" data-i18n="byStatus"></h3><div id="byStatus"></div></div>
           <div><h3 style="margin-bottom:4px" data-i18n="byKebele"></h3><div id="byKebele"></div></div>
+          <div><h3 style="margin-bottom:4px" data-i18n="bySector"></h3><div id="bySector"></div></div>
           <div><h3 style="margin-bottom:4px" data-i18n="byOutcome"></h3><div id="byOutcome"></div></div>
         </div>
       </div>
@@ -250,6 +258,60 @@
         <div id="evalTableWrap"></div>
       </div>
     </div>
+
+    <!-- SETUP TAB (administrator only) -->
+    <div id="setupTab" class="hidden">
+      <div class="card">
+        <p class="muted" data-i18n="listHint"></p>
+        <div class="setup-grid">
+          <div>
+            <h2 data-i18n="kebeles"></h2>
+            <div id="kebelesList"></div>
+            <div class="add-row">
+              <input id="newKebele" maxlength="100" data-ph="newName">
+              <button id="addKebeleBtn" class="primary" data-i18n="add"></button>
+            </div>
+          </div>
+          <div>
+            <h2 data-i18n="sectors"></h2>
+            <div id="sectorsList"></div>
+            <div class="add-row">
+              <input id="newSector" maxlength="100" data-ph="newName">
+              <button id="addSectorBtn" class="primary" data-i18n="add"></button>
+            </div>
+          </div>
+        </div>
+        <div id="setupError" class="error"></div>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="users"></h2>
+        <p class="muted" data-i18n="userHint"></p>
+        <form id="userForm">
+          <input id="userId" type="hidden">
+          <div class="grid">
+            <label><span data-i18n="email"></span> *<input id="uEmail" type="email" required></label>
+            <label><span data-i18n="name"></span><input id="uName" maxlength="120"></label>
+            <label><span data-i18n="password"></span><input id="uPassword" type="password" minlength="8" autocomplete="new-password"></label>
+            <label><span data-i18n="role"></span> *
+              <select id="uRole">
+                <option value="kebele_officer" data-i18n="kebele_officer"></option>
+                <option value="sector_head" data-i18n="sector_head"></option>
+                <option value="admin" data-i18n="admin"></option>
+              </select>
+            </label>
+            <label id="uKebeleWrap"><span data-i18n="kebele"></span><select id="uKebele"></select></label>
+            <label id="uSectorWrap" class="hidden"><span data-i18n="sector"></span><select id="uSector"></select></label>
+          </div>
+          <div class="actions">
+            <button class="primary" type="submit" data-i18n="saveUser"></button>
+            <button type="button" id="userCancelBtn" class="secondary" data-i18n="clear"></button>
+          </div>
+          <div id="userError" class="error"></div>
+        </form>
+        <div id="usersWrap"></div>
+      </div>
+    </div>
   </section>
 </main>
 
@@ -258,6 +320,10 @@ const $ = id => document.getElementById(id);
 let records = [];
 let evaluations = [];
 let lastSummary = null;
+let me = null;
+let kebeleList = [];
+let sectorList = [];
+let users = [];
 
 // ---------------- Translations ----------------
 const T = {
@@ -265,7 +331,7 @@ const T = {
     siteTitle: "Shashogo Woreda Integrated Digital System", home: "Home", about: "About", contact: "Contact",
     adminPanel: "Admin Panel", logout: "Logout", adminLogin: "Administrator login",
     loginHint: "Sign in to manage SWIDS records.", email: "Email", password: "Password", signIn: "Sign in",
-    tabRecords: "Records", tabReports: "Reports & Evaluation",
+    tabRecords: "Records", tabReports: "Reports & Evaluation", tabSetup: "Setup",
     addRecord: "Add record", editRecord: "Edit record", formHint: "Create and update local administrative records.",
     newRecord: "New record", name: "Name", category: "Category", categoryPh: "e.g. Citizen, Business",
     kebele: "Kebele", phone: "Phone", status: "Status", notes: "Notes",
@@ -281,7 +347,7 @@ const T = {
     summaryReport: "Summary report", summaryHint: "Live counts across all records and follow-up evaluations.",
     refresh: "Refresh", exportRecords: "Export records CSV", exportEvals: "Export evaluations CSV",
     statRecords: "Records", statActive: "Active", statEvals: "Evaluations", statAvg: "Avg. rating",
-    byCategory: "By category", byStatus: "By status", byKebele: "By kebele", byOutcome: "Evaluation outcomes",
+    byCategory: "By category", byStatus: "By status", byKebele: "By kebele", bySector: "By sector", byOutcome: "Evaluation outcomes",
     noData: "No data.", Unspecified: "Unspecified",
     addEval: "Add evaluation", editEval: "Edit evaluation", evalHint: "Record a follow-up assessment for any existing record.",
     record: "Record", period: "Period", evaluator: "Evaluator", rating: "Rating (1-5)", outcome: "Outcome",
@@ -289,13 +355,20 @@ const T = {
     comments: "Comments", saveEval: "Save evaluation", evaluations: "Evaluations",
     allRecords: "All records", selectRecord: "Select record...",
     evalOne: "{n} evaluation", evalMany: "{n} evaluations", noEvals: "No evaluations found.",
-    confirmDelete: "Delete this record?", confirmDeleteEval: "Delete this evaluation?"
+    confirmDelete: "Delete this record?", confirmDeleteEval: "Delete this evaluation?",
+    kebeles: "Kebeles", sectors: "Sectors", users: "Users", add: "Add", newName: "New name",
+    rename: "Rename", activate: "Activate", deactivate: "Deactivate", inactiveTag: "inactive",
+    listHint: "Renaming a kebele or sector also updates every record that uses the old name.",
+    noItems: "Nothing here yet.", userHint: "Create accounts for sector heads and kebele officers.",
+    role: "Role", admin: "Woreda administrator", sector_head: "Sector head", kebele_officer: "Kebele officer",
+    saveUser: "Save user", scope: "Scope", noUsers: "No users yet.", pwKeep: "Leave blank to keep the current password",
+    selectOne: "— select —", promptRename: "New name:"
   },
   am: {
     siteTitle: "ሻሾጎ ወረዳ የተቀናጀ ዲጂታል ሲስተም", home: "መነሻ", about: "ስለ እኛ", contact: "አግኙን",
     adminPanel: "የአስተዳዳሪ ፓነል", logout: "ውጣ", adminLogin: "የአስተዳዳሪ መግቢያ",
     loginHint: "መዝገቦችን ለማስተዳደር ይግቡ።", email: "ኢሜይል", password: "የይለፍ ቃል", signIn: "ግባ",
-    tabRecords: "መዝገቦች", tabReports: "ሪፖርት እና ግምገማ",
+    tabRecords: "መዝገቦች", tabReports: "ሪፖርት እና ግምገማ", tabSetup: "ማዋቀሪያ",
     addRecord: "መዝገብ ጨምር", editRecord: "መዝገብ አርም", formHint: "የአካባቢ አስተዳደር መዝገቦችን ይፍጠሩ እና ያሻሽሉ።",
     newRecord: "አዲስ መዝገብ", name: "ስም", category: "ምድብ", categoryPh: "ለምሳሌ፡ ነዋሪ፣ ንግድ",
     kebele: "ቀበሌ", phone: "ስልክ", status: "ሁኔታ", notes: "ማስታወሻ",
@@ -311,7 +384,7 @@ const T = {
     summaryReport: "የማጠቃለያ ሪፖርት", summaryHint: "በሁሉም መዝገቦች እና የክትትል ግምገማዎች ላይ ያሉ ወቅታዊ ቆጠራዎች።",
     refresh: "አድስ", exportRecords: "መዝገቦችን ላክ (CSV)", exportEvals: "ግምገማዎችን ላክ (CSV)",
     statRecords: "መዝገቦች", statActive: "ንቁ", statEvals: "ግምገማዎች", statAvg: "አማካይ ደረጃ",
-    byCategory: "በምድብ", byStatus: "በሁኔታ", byKebele: "በቀበሌ", byOutcome: "የግምገማ ውጤቶች",
+    byCategory: "በምድብ", byStatus: "በሁኔታ", byKebele: "በቀበሌ", bySector: "በዘርፍ", byOutcome: "የግምገማ ውጤቶች",
     noData: "መረጃ የለም።", Unspecified: "ያልተገለጸ",
     addEval: "ግምገማ ጨምር", editEval: "ግምገማ አርም", evalHint: "ለማንኛውም መዝገብ የክትትል ግምገማ ይመዝግቡ።",
     record: "መዝገብ", period: "ወቅት", evaluator: "ገምጋሚ", rating: "ደረጃ (1-5)", outcome: "ውጤት",
@@ -319,7 +392,14 @@ const T = {
     comments: "አስተያየት", saveEval: "ግምገማ አስቀምጥ", evaluations: "ግምገማዎች",
     allRecords: "ሁሉም መዝገቦች", selectRecord: "መዝገብ ይምረጡ...",
     evalOne: "{n} ግምገማ", evalMany: "{n} ግምገማዎች", noEvals: "ምንም ግምገማ አልተገኘም።",
-    confirmDelete: "ይህን መዝገብ መሰረዝ ይፈልጋሉ?", confirmDeleteEval: "ይህን ግምገማ መሰረዝ ይፈልጋሉ?"
+    confirmDelete: "ይህን መዝገብ መሰረዝ ይፈልጋሉ?", confirmDeleteEval: "ይህን ግምገማ መሰረዝ ይፈልጋሉ?",
+    kebeles: "ቀበሌዎች", sectors: "ዘርፎች", users: "ተጠቃሚዎች", add: "ጨምር", newName: "አዲስ ስም",
+    rename: "ስም ቀይር", activate: "አግብር", deactivate: "አቦዝን", inactiveTag: "ንቁ ያልሆነ",
+    listHint: "የቀበሌ ወይም የዘርፍ ስም ሲቀየር ያንን ስም የሚጠቀሙ ሁሉም መዝገቦች ይዘምናሉ።",
+    noItems: "እስካሁን ምንም የለም።", userHint: "ለዘርፍ ኃላፊዎች እና ለቀበሌ ሠራተኞች መለያ ይፍጠሩ።",
+    role: "ሚና", admin: "የወረዳ አስተዳዳሪ", sector_head: "የዘርፍ ኃላፊ", kebele_officer: "የቀበሌ ሠራተኛ",
+    saveUser: "ተጠቃሚ አስቀምጥ", scope: "ወሰን", noUsers: "እስካሁን ተጠቃሚ የለም።", pwKeep: "አሁን ያለውን ለማቆየት ባዶ ይተዉ",
+    selectOne: "— ይምረጡ —", promptRename: "አዲስ ስም፡"
   }
 };
 
@@ -335,6 +415,7 @@ function applyI18n() {
   document.querySelectorAll("[data-i18n]").forEach(e => { e.textContent = t(e.dataset.i18n); });
   document.querySelectorAll("[data-ph]").forEach(e => { e.placeholder = t(e.dataset.ph); });
   $("langBtn").textContent = lang === "am" ? "English" : "አማርኛ";
+  renderWhoami();
 }
 
 $("langBtn").addEventListener("click", () => {
@@ -344,6 +425,7 @@ $("langBtn").addEventListener("click", () => {
   populateRecordSelects();
   renderRecords();
   renderEvaluations();
+  renderSetup();
   if (lastSummary) renderSummary(lastSummary);
 });
 
@@ -361,16 +443,26 @@ async function api(url, options = {}) {
   return data;
 }
 
+function renderWhoami() {
+  $("whoami").textContent = me ? `${me.name || me.email} · ${t(me.role)}` : "";
+}
+
 function setLoggedIn(user) {
+  me = user || null;
   $("loginCard").classList.toggle("hidden", !!user);
   $("app").classList.toggle("hidden", !user);
   $("logoutBtn").classList.toggle("hidden", !user);
+  $("setupTabBtn").classList.toggle("hidden", !(user && user.role === "admin"));
+  renderWhoami();
 }
 
 async function loadAll() {
+  await loadLists();
   await loadRecords();
   await loadEvaluations();
   await loadSummary();
+  if (me && me.role === "admin") await loadUsers();
+  clearForm();
 }
 
 async function checkAuth() {
@@ -404,13 +496,14 @@ $("logoutBtn").addEventListener("click", async () => {
   setLoggedIn(null);
 });
 
+const TABS = ["recordsTab", "reportsTab", "setupTab"];
 document.querySelectorAll(".tab-btn").forEach(btn => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
-    $("recordsTab").classList.toggle("hidden", btn.dataset.tab !== "recordsTab");
-    $("reportsTab").classList.toggle("hidden", btn.dataset.tab !== "reportsTab");
+    TABS.forEach(id => $(id).classList.toggle("hidden", btn.dataset.tab !== id));
     if (btn.dataset.tab === "reportsTab") { loadSummary(); loadEvaluations(); }
+    if (btn.dataset.tab === "setupTab") { loadLists().then(renderSetup); loadUsers(); }
   });
 });
 
@@ -418,6 +511,51 @@ function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, c => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
   }[c]));
+}
+
+// ---------------- Kebele and Sector lists ----------------
+async function loadLists() {
+  try {
+    const [k, s] = await Promise.all([api("/api/kebeles"), api("/api/sectors")]);
+    kebeleList = k.items;
+    sectorList = s.items;
+    fillListSelect("kebele");
+    fillListSelect("sector");
+    fillListSelect("uKebele");
+    fillListSelect("uSector");
+    applyScopeLock();
+  } catch (err) {
+    if (err.message.includes("Authentication")) setLoggedIn(null);
+  }
+}
+
+function fillListSelect(id) {
+  const items = (id === "kebele" || id === "uKebele") ? kebeleList : sectorList;
+  const el = $(id);
+  const prev = el.value;
+  el.innerHTML = `<option value="">${esc(t("selectOne"))}</option>` +
+    items.filter(i => i.active).map(i => `<option value="${esc(i.name)}">${esc(i.name)}</option>`).join("");
+  el.value = prev;
+}
+
+// Show a value that is no longer in the list (old typed data) so it is not lost silently.
+function setSelectValue(id, value) {
+  const el = $(id);
+  if (value && ![...el.options].some(o => o.value === value)) {
+    el.insertAdjacentHTML("beforeend", `<option value="${esc(value)}">${esc(value)}</option>`);
+  }
+  el.value = value || "";
+}
+
+// Kebele officers are locked to their kebele; sector heads to their sector.
+function applyScopeLock() {
+  if (!me) return;
+  const kLock = me.role === "kebele_officer";
+  const sLock = me.role === "sector_head";
+  if (kLock) setSelectValue("kebele", me.kebele);
+  if (sLock) setSelectValue("sector", me.sector);
+  $("kebele").disabled = kLock;
+  $("sector").disabled = sLock;
 }
 
 // ---------------- Records ----------------
@@ -469,12 +607,13 @@ function renderRecords() {
   }
   $("tableWrap").innerHTML = `
     <table>
-      <thead><tr><th>${t("name")}</th><th>${t("category")}</th><th>${t("kebele")}</th><th>${t("phone")}</th><th>${t("status")}</th><th>${t("actions")}</th></tr></thead>
+      <thead><tr><th>${t("name")}</th><th>${t("category")}</th><th>${t("kebele")}</th><th>${t("sector")}</th><th>${t("phone")}</th><th>${t("status")}</th><th>${t("actions")}</th></tr></thead>
       <tbody>${list.map(r => `
         <tr>
           <td>${esc(r.name)}</td>
           <td>${esc(r.category)}</td>
           <td>${esc(r.kebele)}</td>
+          <td>${esc(r.sector)}</td>
           <td>${esc(r.phone)}</td>
           <td><span class="status ${statusClass(r.status)}">${esc(t(r.status))}</span></td>
           <td>
@@ -489,9 +628,12 @@ window.editRecord = id => {
   const r = records.find(x => x.id === id);
   if (!r) return;
   $("recordId").value = r.id;
-  ["name", "category", "kebele", "phone", "status", "notes", ...EXTRA_FIELDS].forEach(f => {
+  ["name", "category", "phone", "status", "notes", ...EXTRA_FIELDS.filter(f => f !== "sector")].forEach(f => {
     $(f).value = r[f] ?? "";
   });
+  setSelectValue("kebele", r.kebele);
+  setSelectValue("sector", r.sector);
+  applyScopeLock();
   setT($("formTitle"), "editRecord");
   window.scrollTo({ top: 0, behavior: "smooth" });
 };
@@ -511,6 +653,9 @@ function clearForm() {
   $("recordForm").reset();
   $("recordId").value = "";
   $("status").value = "Active";
+  fillListSelect("kebele");
+  fillListSelect("sector");
+  applyScopeLock();
   setT($("formTitle"), "addRecord");
   $("formError").textContent = "";
 }
@@ -548,7 +693,6 @@ function populateRecordSelects() {
   fillFilter("fStatus", "allStatuses", ["Active", "Pending", "Inactive"], true);
 
   $("categoryList").innerHTML = uniqueValues("category").map(v => `<option value="${esc(v)}">`).join("");
-  $("kebeleList").innerHTML = uniqueValues("kebele").map(v => `<option value="${esc(v)}">`).join("");
 
   const options = records.slice()
     .sort((a, b) => a.name.localeCompare(b.name))
@@ -580,6 +724,7 @@ function renderSummary(s) {
   $("byCategory").innerHTML = renderBarList(s.byCategory, s.totalRecords);
   $("byStatus").innerHTML = renderBarList(s.byStatus, s.totalRecords);
   $("byKebele").innerHTML = renderBarList(s.byKebele, s.totalRecords);
+  $("bySector").innerHTML = renderBarList(s.bySector, s.totalRecords);
   $("byOutcome").innerHTML = renderBarList(s.byOutcome, s.totalEvaluations);
 }
 
@@ -704,7 +849,169 @@ $("evalFilterRecord").addEventListener("change", loadEvaluations);
 $("exportRecordsBtn").addEventListener("click", () => window.open(API_BASE + "/api/reports/export/records.csv", "_blank"));
 $("exportEvalBtn").addEventListener("click", () => window.open(API_BASE + "/api/reports/export/evaluations.csv", "_blank"));
 
+// ---------------- Setup tab (administrator) ----------------
+function renderManagedList(kind) {
+  const items = kind === "kebeles" ? kebeleList : sectorList;
+  $(kind + "List").innerHTML = items.length
+    ? items.map(i => `
+      <div class="list-row">
+        <span class="${i.active ? "" : "muted"}">${esc(i.name)}${i.active ? "" : " (" + esc(t("inactiveTag")) + ")"}</span>
+        <span>
+          <button class="secondary" onclick="renameItem('${kind}',${i.id})">${t("rename")}</button>
+          <button class="secondary" onclick="toggleItem('${kind}',${i.id})">${t(i.active ? "deactivate" : "activate")}</button>
+        </span>
+      </div>`).join("")
+    : `<p class="muted">${esc(t("noItems"))}</p>`;
+}
+
+function renderSetup() {
+  renderManagedList("kebeles");
+  renderManagedList("sectors");
+  renderUsers();
+}
+
+async function afterListChange() {
+  $("setupError").textContent = "";
+  await loadLists();
+  renderSetup();
+  await loadRecords();
+  await loadSummary();
+  await loadUsers();
+}
+
+async function addItem(kind, inputId) {
+  const name = $(inputId).value.trim();
+  if (!name) return;
+  try {
+    await api("/api/" + kind, { method: "POST", body: JSON.stringify({ name }) });
+    $(inputId).value = "";
+    await afterListChange();
+  } catch (err) { $("setupError").textContent = err.message; }
+}
+
+window.renameItem = async (kind, id) => {
+  const items = kind === "kebeles" ? kebeleList : sectorList;
+  const item = items.find(i => i.id === id);
+  const name = prompt(t("promptRename"), item ? item.name : "");
+  if (name === null || !name.trim() || name.trim() === item.name) return;
+  try {
+    await api(`/api/${kind}/${id}`, { method: "PUT", body: JSON.stringify({ name: name.trim() }) });
+    await afterListChange();
+  } catch (err) { $("setupError").textContent = err.message; }
+};
+
+window.toggleItem = async (kind, id) => {
+  const items = kind === "kebeles" ? kebeleList : sectorList;
+  const item = items.find(i => i.id === id);
+  try {
+    await api(`/api/${kind}/${id}`, { method: "PUT", body: JSON.stringify({ active: !item.active }) });
+    await afterListChange();
+  } catch (err) { $("setupError").textContent = err.message; }
+};
+
+$("addKebeleBtn").addEventListener("click", () => addItem("kebeles", "newKebele"));
+$("addSectorBtn").addEventListener("click", () => addItem("sectors", "newSector"));
+
+// Users
+async function loadUsers() {
+  if (!me || me.role !== "admin") return;
+  try {
+    users = (await api("/api/users")).users;
+    renderUsers();
+  } catch (err) { $("userError").textContent = err.message; }
+}
+
+function renderUsers() {
+  if (!users.length) {
+    $("usersWrap").innerHTML = `<p class="muted">${esc(t("noUsers"))}</p>`;
+    return;
+  }
+  $("usersWrap").innerHTML = `
+    <table>
+      <thead><tr><th>${t("email")}</th><th>${t("name")}</th><th>${t("role")}</th><th>${t("scope")}</th><th>${t("status")}</th><th>${t("actions")}</th></tr></thead>
+      <tbody>${users.map(u => `
+        <tr>
+          <td>${esc(u.email)}</td>
+          <td>${esc(u.name)}</td>
+          <td>${esc(t(u.role))}</td>
+          <td>${esc(u.kebele || u.sector || "")}</td>
+          <td><span class="status ${u.active ? "" : "inactive"}">${esc(t(u.active ? "Active" : "Inactive"))}</span></td>
+          <td>
+            <button class="secondary" onclick="editUser('${u.id}')">${t("edit")}</button>
+            <button class="secondary" onclick="toggleUser('${u.id}')">${t(u.active ? "deactivate" : "activate")}</button>
+          </td>
+        </tr>`).join("")}</tbody>
+    </table>`;
+}
+
+function syncUserRole() {
+  const r = $("uRole").value;
+  $("uKebeleWrap").classList.toggle("hidden", r !== "kebele_officer");
+  $("uSectorWrap").classList.toggle("hidden", r !== "sector_head");
+}
+$("uRole").addEventListener("change", syncUserRole);
+
+function resetUserForm() {
+  $("userForm").reset();
+  $("userId").value = "";
+  $("uEmail").disabled = false;
+  $("uPassword").required = true;
+  $("uPassword").placeholder = "";
+  $("userError").textContent = "";
+  syncUserRole();
+}
+
+window.editUser = id => {
+  const u = users.find(x => x.id === id);
+  if (!u) return;
+  $("userId").value = u.id;
+  $("uEmail").value = u.email;
+  $("uEmail").disabled = true;
+  $("uName").value = u.name || "";
+  $("uPassword").value = "";
+  $("uPassword").required = false;
+  $("uPassword").placeholder = t("pwKeep");
+  $("uRole").value = u.role;
+  $("uKebele").value = u.kebele || "";
+  $("uSector").value = u.sector || "";
+  syncUserRole();
+  $("userForm").scrollIntoView({ behavior: "smooth", block: "start" });
+};
+
+window.toggleUser = async id => {
+  const u = users.find(x => x.id === id);
+  try {
+    await api("/api/users/" + encodeURIComponent(id), { method: "PUT", body: JSON.stringify({ active: !u.active }) });
+    await loadUsers();
+  } catch (err) { $("userError").textContent = err.message; }
+};
+
+$("userForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  $("userError").textContent = "";
+  const id = $("userId").value;
+  const role = $("uRole").value;
+  const payload = {
+    email: $("uEmail").value,
+    name: $("uName").value,
+    role,
+    kebele: role === "kebele_officer" ? $("uKebele").value : "",
+    sector: role === "sector_head" ? $("uSector").value : ""
+  };
+  if ($("uPassword").value) payload.password = $("uPassword").value;
+  try {
+    await api(id ? "/api/users/" + encodeURIComponent(id) : "/api/users", {
+      method: id ? "PUT" : "POST",
+      body: JSON.stringify(payload)
+    });
+    resetUserForm();
+    await loadUsers();
+  } catch (err) { $("userError").textContent = err.message; }
+});
+$("userCancelBtn").addEventListener("click", resetUserForm);
+
 applyI18n();
+syncUserRole();
 checkAuth();
 </script>
 </body>

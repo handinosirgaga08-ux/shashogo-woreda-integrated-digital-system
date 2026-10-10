@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reports & Announcements – Shashogo Woreda</title>
+<style>
+:root{--bg:#f1f3f6;--card:#fff;--ink:#16202e;--mute:#667085;--line:#e1e5ec;--blue:#1565a8;--chip:#e9edf3;--ok:#15803d;--red:#b91c1c}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,"Noto Sans Ethiopic",sans-serif}
+header{background:#0b1224;color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
+header a{color:#cfe0f5;font-size:13px;text-decoration:none}header b{font-size:15px}
+main{padding:12px;max-width:720px;margin:auto}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{flex:1;border:0;background:var(--chip);padding:9px;border-radius:8px;font-weight:600}
+.tabs button.on{background:var(--blue);color:#fff}
+.badge{background:var(--red);color:#fff;border-radius:10px;font-size:11px;padding:0 6px;margin-left:4px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+h2{margin:0 0 10px;font-size:16px}
+label{display:block;font-size:12px;color:var(--mute);margin:8px 0 3px}
+input,select,textarea{width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{background:var(--blue);color:#fff;border:0;border-radius:8px;padding:9px 14px;font-weight:600;margin-top:12px}
+.btn.alt{background:var(--chip);color:var(--ink)}
+.item{border-top:1px solid var(--line);padding:10px 0}.item:first-child{border-top:0}
+.top{display:flex;justify-content:space-between;gap:8px}
+.meta{color:var(--mute);font-size:12px}
+.pill{font-size:11px;font-weight:700;border-radius:20px;padding:2px 9px;background:var(--chip);white-space:nowrap}
+.urgent{color:var(--red);font-weight:700;font-size:11px}
+.steps{display:flex;gap:4px;margin:8px 0 2px}.steps i{flex:1;height:5px;border-radius:3px;background:var(--line)}.steps i.f{background:var(--blue)}
+.ann.Emergency{border-left:4px solid var(--red)}.ann.Event{border-left:4px solid var(--ok)}
+.ann.unread h3::before{content:"●";color:var(--blue);margin-right:6px;font-size:10px}
+.ann h3{margin:0 0 3px;font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{border:1px solid var(--line);background:#fff;border-radius:20px;padding:5px 11px;font-size:12px}
+.chips button.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.stats div{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px;text-align:center}.stats b{display:block;font-size:18px}
+.hide{display:none}
+.toast{position:fixed;left:12px;right:12px;bottom:14px;background:#0b1224;color:#fff;padding:12px;border-radius:10px;text-align:center}
+</style></head>
+<body>
+<header><b>Reports & Announcements</b><a href="/">← Home</a></header>
+<main>
+<div class="tabs">
+  <button id="t-rep" class="on" onclick="setTab('rep')">Reports</button>
+  <button id="t-ann" onclick="setTab('ann')">Announcements<span class="badge hide" id="ub"></span></button>
+</div>
+
+<section id="rep">
+ <div id="staff-add" class="hide"><button class="btn" style="margin:0 0 12px;width:100%" onclick="toggleAdd()">+ Add report for a citizen</button></div>
+ <div id="cit-rep">
+  <div class="card" id="submit-card"><h2>Send a report</h2>
+   <div class="row"><div><label>Category</label><select id="f-cat"></select></div>
+   <div><label>Kebele</label><select id="f-keb"></select></div></div>
+   <label>Title</label><input id="f-title" maxlength="150">
+   <label>Location detail (optional)</label><input id="f-loc" maxlength="200">
+   <label>Description</label><textarea id="f-desc" rows="3"></textarea>
+   <div class="row"><div><label>Phone (optional)</label><input id="f-ph" placeholder="09XXXXXXXX"></div>
+   <div><label>Priority</label><select id="f-pr"><option>Normal</option><option>Urgent</option></select></div></div>
+   <label><input type="checkbox" id="f-anon" style="width:auto"> Send anonymously (phone not saved)</label>
+   <button class="btn" onclick="submitReport()">Submit report</button></div>
+  <div class="card" id="track-card"><h2>Track a report</h2>
+   <div style="display:flex;gap:8px"><input id="trk" placeholder="SW-2026-XXXXXX">
+   <button class="btn alt" style="margin:0" onclick="track()">Check</button></div><div id="trk-out"></div></div>
+  <div class="card" id="mine-card"><h2>Reports sent from this device</h2><div id="mine" class="meta">None yet.</div></div>
+ </div>
+ <div id="staff-rep" class="hide">
+  <div class="stats"><div><b id="st-t">0</b><span class="meta">Total</span></div><div><b id="st-o">0</b><span class="meta">Open</span></div>
+  <div><b id="st-r">0</b><span class="meta">Resolved</span></div><div><b id="st-a">–</b><span class="meta">Avg days</span></div></div>
+  <div class="card"><h2>Inbox</h2>
+   <div class="row"><div id="kfilter"><label>Kebele</label><select id="fl-keb" onchange="loadInbox()"></select></div>
+   <div><label>Status</label><select id="fl-st" onchange="loadInbox()"></select></div></div>
+   <div id="inbox"></div></div>
+ </div>
+</section>
+
+<section id="ann" class="hide">
+ <div class="card"><h2>Follow</h2><div class="chips" id="follows"></div>
+  <div class="meta" style="margin-top:6px">Emergency announcements are always shown.</div></div>
+ <div class="card hide" id="post-card"><h2>Post announcement</h2>
+  <label>Title (English)</label><input id="a-ten" maxlength="150"><label>Title (Amharic)</label><input id="a-tam" maxlength="150">
+  <label>Message (English)</label><textarea id="a-ben" rows="2"></textarea>
+  <label>Message (Amharic)</label><textarea id="a-bam" rows="2"></textarea>
+  <div class="row"><div><label>Type</label><select id="a-type"></select></div><div><label>Audience</label><select id="a-aud"></select></div></div>
+  <div class="row"><div><label>Publish at (optional)</label><input id="a-pub" type="datetime-local"></div>
+  <div><label>Expires (optional)</label><input id="a-exp" type="datetime-local"></div></div>
+  <button class="btn" onclick="postAnn()">Publish</button></div>
+ <div id="feed"></div>
+</section>
+<div class="toast hide" id="toast"></div>
+</main>
+
+<script>
+var WHOLE="Whole Woreda";
+var CATS=["Service complaint","Infrastructure","Security","Health","Agriculture","Suggestion","Other"];
+var STATUSES=["Submitted","Received","In progress","Resolved","Rejected"];
+var TYPES=["General","Emergency","Event","Service notice"];
+var KEBELES=[],USER=null,following={};
+
+function $(i){return document.getElementById(i)}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function when(d){try{return new Date(d).toLocaleString()}catch(e){return d}}
+function toast(m){var t=$("toast");t.textContent=m;t.classList.remove("hide");setTimeout(function(){t.classList.add("hide")},3200)}
+function opts(id,l){$(id).innerHTML=l.map(function(k){return"<option>"+esc(k)+"</option>"}).join("")}
+function store(k,v){try{if(v===undefined)return JSON.parse(localStorage.getItem(k));localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}}
+function api(method,url,body){
+ return fetch(url,{method:method,headers:{"Content-Type":"application/json"},credentials:"same-origin",body:body?JSON.stringify(body):undefined})
+ .then(function(r){return r.json().catch(function(){return{}}).then(function(d){if(!r.ok)throw new Error(d.error||"Error "+r.status);return d})})}
+function fail(e){toast(e.message)}
+function isStaff(){return USER&&(USER.role==="admin"||USER.role==="kebele_officer")}
+function stepBar(s){var i=STATUSES.indexOf(s);return'<div class="steps">'+STATUSES.slice(0,4).map(function(_,k){return'<i class="'+(k<=i?"f":"")+'"></i>'}).join("")+"</div>"}
+function repHTML(r,extra){var no=r.tracking_no;
+ return'<div class="item"><div class="top"><div><b>'+esc(r.title)+'</b><div class="meta">'+esc(no)+" · "+esc(r.category)+" · "+esc(r.kebele)+'</div></div>'+
+ '<div style="text-align:right"><span class="pill">'+esc(r.status)+"</span>"+(r.priority==="Urgent"?'<div class="urgent">URGENT</div>':"")+"</div></div>"+stepBar(r.status)+
+ (r.updates||[]).filter(function(u){return u.note}).map(function(u){return'<div class="meta">'+esc(when(u.created_at))+": "+esc(u.note)+"</div>"}).join("")+(extra||"")+"</div>"}
+
+function setTab(t){["rep","ann"].forEach(function(x){$(x).classList.toggle("hide",x!==t);$("t-"+x).classList.toggle("on",x===t)});if(t==="ann")loadFeed(true)}
+
+/* reports */
+function submitReport(){
+ api("POST","/api/citizen-reports",{category:$("f-cat").value,kebele:$("f-keb").value,title:$("f-title").value,locationDetail:$("f-loc").value,
+  description:$("f-desc").value,phone:$("f-ph").value,priority:$("f-pr").value,anonymous:$("f-anon").checked})
+ .then(function(d){if(isStaff()){$("submit-card").classList.add("hide");["f-title","f-loc","f-desc","f-ph"].forEach(function(i){$(i).value=""});loadInbox();toast("Report added. Give the citizen this tracking number: "+d.trackingNo);return}var m=store("swids_mine")||[];m.unshift(d.trackingNo);store("swids_mine",m.slice(0,20));
+  ["f-title","f-loc","f-desc"].forEach(function(i){$(i).value=""});$("trk").value=d.trackingNo;track();loadMine();
+  toast("Submitted. Save your tracking number: "+d.trackingNo)}).catch(fail)}
+function toggleAdd(){$("submit-card").classList.toggle("hide")}
+function track(){var v=$("trk").value.trim();if(!v)return;
+ api("GET","/api/citizen-reports/track/"+encodeURIComponent(v)).then(function(d){$("trk-out").innerHTML=repHTML(d.report)})
+ .catch(function(e){$("trk-out").innerHTML='<div class="meta" style="margin-top:8px">'+esc(e.message)+"</div>"})}
+function loadMine(){var m=store("swids_mine")||[];if(!m.length)return;$("mine").innerHTML="";
+ m.forEach(function(no){api("GET","/api/citizen-reports/track/"+encodeURIComponent(no)).then(function(d){$("mine").insertAdjacentHTML("beforeend",repHTML(d.report))}).catch(function(){})})}
+
+function loadInbox(){
+ var q="?kebele="+encodeURIComponent($("fl-keb").value)+"&status="+encodeURIComponent($("fl-st").value);
+ api("GET","/api/citizen-reports"+q).then(function(d){
+  $("inbox").innerHTML=d.reports.map(function(r){
+   var sel='<select onchange="setStatus(\''+r.id+'\',this.value)" style="margin-top:8px">'+STATUSES.map(function(o){return"<option"+(o===r.status?" selected":"")+">"+o+"</option>"}).join("")+"</select>";
+   return repHTML(r,'<div class="meta">'+esc(r.description)+(r.location_detail?" · 📍 "+esc(r.location_detail):"")+(r.phone?" · 📞 "+esc(r.phone):"")+(r.assigned_dept?" · Dept: "+esc(r.assigned_dept):"")+"</div>"+sel)}).join("")||'<div class="meta">Nothing here.</div>'}).catch(fail);
+ api("GET","/api/citizen-reports-stats").then(function(s){$("st-t").textContent=s.total;$("st-o").textContent=s.open;$("st-r").textContent=s.resolved;$("st-a").textContent=s.avgResolutionDays==null?"–":s.avgResolutionDays}).catch(function(){})}
+function setStatus(id,status){
+ var note=prompt(status==="Rejected"?"Reason (required):":"Public reply to the citizen (optional):");if(note===null){loadInbox();return}
+ api("PATCH","/api/citizen-reports/"+id,{status:status,note:note}).then(loadInbox).catch(function(e){fail(e);loadInbox()})}
+
+/* announcements */
+function audiences(){return Object.keys(following).filter(function(k){return following[k]})}
+function loadFeed(markSeen){
+ api("GET","/api/announcements?audiences="+encodeURIComponent(audiences().join("|"))).then(function(d){
+  var seen=store("swids_seen")||0,max=0;
+  $("feed").innerHTML=d.announcements.map(function(a){max=Math.max(max,a.id);
+   var del=isStaff()&&(USER.role==="admin"||a.audience===USER.kebele)?' <button class="btn alt" style="margin:6px 0 0;padding:4px 10px" onclick="delAnn('+a.id+')">Delete</button>':"";
+   return'<div class="card ann '+esc(a.type)+(a.id>seen?" unread":"")+'"><h3>'+esc(a.title_en)+(a.title_am?" · "+esc(a.title_am):"")+'</h3><div class="meta">'+esc(a.type)+" · "+esc(a.audience)+" · "+esc(when(a.publish_at))+
+   '</div><p style="margin:6px 0 0">'+esc(a.body_en)+"</p>"+(a.body_am?'<p style="margin:4px 0 0">'+esc(a.body_am)+"</p>":"")+del+"</div>"}).join("")||'<div class="meta">No announcements yet.</div>';
+  var unread=d.announcements.filter(function(a){return a.id>seen}).length;
+  if(markSeen){store("swids_seen",Math.max(seen,max));$("ub").classList.add("hide")}else{$("ub").textContent=unread;$("ub").classList.toggle("hide",!unread)}
+ }).catch(function(){})}
+function drawFollows(){$("follows").innerHTML=[WHOLE].concat(KEBELES).map(function(k){return'<button class="'+(following[k]?"on":"")+'" data-k="'+esc(k)+'">'+(following[k]?"✓ ":"+ ")+esc(k)+"</button>"}).join("")}
+$("follows").addEventListener("click",function(e){var k=e.target.dataset&&e.target.dataset.k;if(!k)return;following[k]=!following[k];store("swids_follows",audiences());drawFollows();loadFeed(false)});
+function iso(v){return v?new Date(v).toISOString():""}
+function postAnn(){api("POST","/api/announcements",{titleEn:$("a-ten").value,titleAm:$("a-tam").value,bodyEn:$("a-ben").value,bodyAm:$("a-bam").value,
+ type:$("a-type").value,audience:$("a-aud").value,publishAt:iso($("a-pub").value),expiresAt:iso($("a-exp").value)})
+ .then(function(){["a-ten","a-tam","a-ben","a-bam"].forEach(function(i){$(i).value=""});toast("Published");loadFeed(false)}).catch(fail)}
+function delAnn(id){if(!confirm("Delete this announcement?"))return;api("DELETE","/api/announcements/"+id).then(function(){loadFeed(false)}).catch(fail)}
+
+/* start: find out who is signed in (staff) or treat as a citizen */
+opts("f-cat",CATS);opts("a-type",TYPES);opts("fl-st",["All"].concat(STATUSES));
+var f=store("swids_follows");(f&&f.length?f:[WHOLE]).forEach(function(k){following[k]=true});
+Promise.all([api("GET","/api/public/kebeles").catch(function(){return{kebeles:[]}}),api("GET","/api/me").catch(function(){return null})]).then(function(r){
+ KEBELES=r[0].kebeles;USER=r[1]&&r[1].user||null;
+ opts("f-keb",KEBELES);opts("fl-keb",["All"].concat(KEBELES));drawFollows();
+ if(isStaff()){
+  $("track-card").classList.add("hide");$("mine-card").classList.add("hide");$("submit-card").classList.add("hide");$("staff-add").classList.remove("hide");$("staff-rep").classList.remove("hide");if(USER.role!=="admin"&&USER.kebele)opts("f-keb",[USER.kebele]);$("post-card").classList.remove("hide");
+  opts("a-aud",USER.role==="admin"?[WHOLE].concat(KEBELES):[USER.kebele||""]);
+  if(USER.role!=="admin")$("kfilter").classList.add("hide");
+  loadInbox();
+ }else loadMine();
+ loadFeed(false);
+});
+</script></body></html>

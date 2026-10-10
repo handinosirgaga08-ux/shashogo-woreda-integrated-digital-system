@@ -37,7 +37,7 @@ input,select,textarea{width:100%;padding:9px;border:1px solid var(--line);border
 .toast{position:fixed;left:12px;right:12px;bottom:14px;background:#0b1224;color:#fff;padding:12px;border-radius:10px;text-align:center}
 </style></head>
 <body>
-<header><b>Reports & Announcements</b><a href="/">← Home</a></header>
+<header><b>Reports & Announcements</b><span><a href="/periodic" style="margin-right:14px">Monthly / Quarterly</a><a href="/">← Home</a></span></header>
 <main>
 <div class="tabs">
   <button id="t-rep" class="on" onclick="setTab('rep')">Reports</button>
@@ -55,6 +55,8 @@ input,select,textarea{width:100%;padding:9px;border:1px solid var(--line);border
    <label>Description</label><textarea id="f-desc" rows="3"></textarea>
    <div class="row"><div><label>Phone (optional)</label><input id="f-ph" placeholder="09XXXXXXXX"></div>
    <div><label>Priority</label><select id="f-pr"><option>Normal</option><option>Urgent</option></select></div></div>
+   <label>Photos (optional, up to 3)</label><input type="file" id="f-photo" accept="image/*" multiple>
+   <div id="photo-prev"></div>
    <label><input type="checkbox" id="f-anon" style="width:auto"> Send anonymously (phone not saved)</label>
    <button class="btn" onclick="submitReport()">Submit report</button></div>
   <div class="card" id="track-card"><h2>Track a report</h2>
@@ -114,11 +116,26 @@ function repHTML(r,extra){var no=r.tracking_no;
 
 function setTab(t){["rep","ann"].forEach(function(x){$(x).classList.toggle("hide",x!==t);$("t-"+x).classList.toggle("on",x===t)});if(t==="ann")loadFeed(true)}
 
+/* photos: shrink in the browser, then send with the report */
+var PHOTOS=[];
+function drawPhotos(){$("photo-prev").innerHTML=PHOTOS.map(function(p,i){return'<span style="position:relative;display:inline-block;margin:6px 6px 0 0"><img src="'+p+'" style="width:72px;height:72px;object-fit:cover;border-radius:8px"><button type="button" onclick="rmPhoto('+i+')" style="position:absolute;top:-6px;right:-6px;border:0;border-radius:50%;width:22px;height:22px;background:#b91c1c;color:#fff;padding:0">×</button></span>'}).join("")}
+function rmPhoto(i){PHOTOS.splice(i,1);drawPhotos()}
+function shrink(file){return new Promise(function(res,rej){var fr=new FileReader();fr.onerror=rej;fr.onload=function(){var img=new Image();img.onerror=rej;img.onload=function(){
+ var dim=1024,q=0.7,out;
+ for(var n=0;n<8;n++){var sc=Math.min(1,dim/Math.max(img.width,img.height)),c=document.createElement("canvas");c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);
+  var x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(img,0,0,c.width,c.height);
+  out=c.toDataURL("image/jpeg",q);if(out.length<=270000)break;if(q>0.45)q-=0.1;else dim=Math.round(dim*0.75)}
+ res(out)};img.src=fr.result};fr.readAsDataURL(file)})}
+$("f-photo").addEventListener("change",function(e){var files=Array.prototype.slice.call(e.target.files);e.target.value="";
+ var room=3-PHOTOS.length;if(room<=0){toast("Maximum 3 photos");return}
+ files.slice(0,room).forEach(function(f){shrink(f).then(function(d){PHOTOS.push(d);drawPhotos()}).catch(function(){toast("Could not read that photo")})})});
+function photosHTML(r){return r.photo_ids&&r.photo_ids.length?'<div style="margin-top:6px">'+r.photo_ids.map(function(pid){return'<a href="/api/citizen-report-photos/'+pid+'" target="_blank"><img src="/api/citizen-report-photos/'+pid+'" alt="photo" style="width:72px;height:72px;object-fit:cover;border-radius:8px;margin-right:6px"></a>'}).join("")+"</div>":""}
+
 /* reports */
 function submitReport(){
  api("POST","/api/citizen-reports",{category:$("f-cat").value,kebele:$("f-keb").value,title:$("f-title").value,locationDetail:$("f-loc").value,
-  description:$("f-desc").value,phone:$("f-ph").value,priority:$("f-pr").value,anonymous:$("f-anon").checked})
- .then(function(d){if(isStaff()){$("submit-card").classList.add("hide");["f-title","f-loc","f-desc","f-ph"].forEach(function(i){$(i).value=""});loadInbox();toast("Report added. Give the citizen this tracking number: "+d.trackingNo);return}var m=store("swids_mine")||[];m.unshift(d.trackingNo);store("swids_mine",m.slice(0,20));
+  description:$("f-desc").value,phone:$("f-ph").value,priority:$("f-pr").value,anonymous:$("f-anon").checked,photos:PHOTOS})
+ .then(function(d){PHOTOS=[];drawPhotos();if(isStaff()){$("submit-card").classList.add("hide");["f-title","f-loc","f-desc","f-ph"].forEach(function(i){$(i).value=""});loadInbox();toast("Report added. Give the citizen this tracking number: "+d.trackingNo);return}var m=store("swids_mine")||[];m.unshift(d.trackingNo);store("swids_mine",m.slice(0,20));
   ["f-title","f-loc","f-desc"].forEach(function(i){$(i).value=""});$("trk").value=d.trackingNo;track();loadMine();
   toast("Submitted. Save your tracking number: "+d.trackingNo)}).catch(fail)}
 function toggleAdd(){$("submit-card").classList.toggle("hide")}
@@ -133,7 +150,7 @@ function loadInbox(){
  api("GET","/api/citizen-reports"+q).then(function(d){
   $("inbox").innerHTML=d.reports.map(function(r){
    var sel='<select onchange="setStatus(\''+r.id+'\',this.value)" style="margin-top:8px">'+STATUSES.map(function(o){return"<option"+(o===r.status?" selected":"")+">"+o+"</option>"}).join("")+"</select>";
-   return repHTML(r,'<div class="meta">'+esc(r.description)+(r.location_detail?" · 📍 "+esc(r.location_detail):"")+(r.phone?" · 📞 "+esc(r.phone):"")+(r.assigned_dept?" · Dept: "+esc(r.assigned_dept):"")+"</div>"+sel)}).join("")||'<div class="meta">Nothing here.</div>'}).catch(fail);
+   return repHTML(r,'<div class="meta">'+esc(r.description)+(r.location_detail?" · 📍 "+esc(r.location_detail):"")+(r.phone?" · 📞 "+esc(r.phone):"")+(r.assigned_dept?" · Dept: "+esc(r.assigned_dept):"")+"</div>"+photosHTML(r)+sel)}).join("")||'<div class="meta">Nothing here.</div>'}).catch(fail);
  api("GET","/api/citizen-reports-stats").then(function(s){$("st-t").textContent=s.total;$("st-o").textContent=s.open;$("st-r").textContent=s.resolved;$("st-a").textContent=s.avgResolutionDays==null?"–":s.avgResolutionDays}).catch(function(){})}
 function setStatus(id,status){
  var note=prompt(status==="Rejected"?"Reason (required):":"Public reply to the citizen (optional):");if(note===null){loadInbox();return}

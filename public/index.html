@@ -52,6 +52,7 @@
     .tabs { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
     .tab-btn { background:#eaecf0; color:#344054; padding:9px 16px; border-radius:8px; }
     .tab-btn.active { background:var(--primary); color:#fff; }
+    .tab-link { background:#eaecf0; color:#344054; padding:9px 16px; border-radius:8px; text-decoration:none; font-weight:600; display:inline-block; }
     .stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
     .stat-box { background:#f8f9fb; border:1px solid #eaecf0; border-radius:10px; padding:14px; }
     .stat-box .num { font-size:24px; font-weight:700; }
@@ -88,6 +89,7 @@
       <a href="/about" data-i18n="about"></a>
       <a href="/contact" data-i18n="contact"></a>
       <a href="/admin" data-i18n="adminPanel"></a>
+      <a href="/reports" data-i18n="citizenReports"></a>
     </nav>
   </div>
   <div class="header-tools">
@@ -118,6 +120,7 @@
       <button class="tab-btn active" data-tab="recordsTab" data-i18n="tabRecords"></button>
       <button class="tab-btn" data-tab="reportsTab" data-i18n="tabReports"></button>
       <button id="setupTabBtn" class="tab-btn hidden" data-tab="setupTab" data-i18n="tabSetup"></button>
+      <a class="tab-link" href="/reports" data-i18n="citizenReports"></a>
     </div>
 
     <!-- RECORDS TAB -->
@@ -362,7 +365,8 @@ const T = {
     noItems: "Nothing here yet.", userHint: "Create accounts for sector heads and kebele officers.",
     role: "Role", admin: "Woreda administrator", sector_head: "Sector head", kebele_officer: "Kebele officer",
     saveUser: "Save user", scope: "Scope", noUsers: "No users yet.", pwKeep: "Leave blank to keep the current password",
-    selectOne: "— select —", promptRename: "New name:"
+    selectOne: "— select —", promptRename: "New name:",
+    citizenReports: "Citizen Reports"
   },
   am: {
     siteTitle: "ሻሾጎ ወረዳ የተቀናጀ ዲጂታል ሲስተም", home: "መነሻ", about: "ስለ እኛ", contact: "አግኙን",
@@ -399,7 +403,8 @@ const T = {
     noItems: "እስካሁን ምንም የለም።", userHint: "ለዘርፍ ኃላፊዎች እና ለቀበሌ ሠራተኞች መለያ ይፍጠሩ።",
     role: "ሚና", admin: "የወረዳ አስተዳዳሪ", sector_head: "የዘርፍ ኃላፊ", kebele_officer: "የቀበሌ ሠራተኛ",
     saveUser: "ተጠቃሚ አስቀምጥ", scope: "ወሰን", noUsers: "እስካሁን ተጠቃሚ የለም።", pwKeep: "አሁን ያለውን ለማቆየት ባዶ ይተዉ",
-    selectOne: "— ይምረጡ —", promptRename: "አዲስ ስም፡"
+    selectOne: "— ይምረጡ —", promptRename: "አዲስ ስም፡",
+    citizenReports: "የነዋሪ ሪፖርቶች"
   }
 };
 

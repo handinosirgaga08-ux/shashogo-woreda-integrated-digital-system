@@ -47,6 +47,34 @@ async function initTables(pool) {
     );
     CREATE INDEX IF NOT EXISTS idx_cr_kebele_status ON citizen_reports (kebele, status);
     CREATE INDEX IF NOT EXISTS idx_ann_pub ON announcements (publish_at);
+    CREATE TABLE IF NOT EXISTS report_photos (
+      id SERIAL PRIMARY KEY,
+      report_id TEXT NOT NULL REFERENCES citizen_reports(id) ON DELETE CASCADE,
+      mime TEXT NOT NULL DEFAULT 'image/jpeg',
+      data BYTEA NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_photos_report ON report_photos (report_id);
+    CREATE TABLE IF NOT EXISTS periodic_reports (
+      id TEXT PRIMARY KEY,
+      unit_type TEXT NOT NULL CHECK (unit_type IN ('kebele','sector')),
+      unit_name TEXT NOT NULL,
+      period_type TEXT NOT NULL CHECK (period_type IN ('Monthly','Quarterly')),
+      period_label TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      achievements TEXT DEFAULT '',
+      challenges TEXT DEFAULT '',
+      next_plan TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'Submitted',
+      feedback TEXT DEFAULT '',
+      submitted_by TEXT NOT NULL,
+      submitted_name TEXT DEFAULT '',
+      reviewed_by TEXT,
+      reviewed_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT now(),
+      updated_at TIMESTAMPTZ DEFAULT now(),
+      UNIQUE (unit_type, unit_name, period_type, period_label)
+    );
   `);
 }
 
@@ -100,6 +128,18 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
     let phone = anonymous ? null : cleanText(b.phone, 20).replace(/\s+/g, "") || null;
     if (phone && !/^(?:\+251|0)[79]\d{8}$/.test(phone)) return res.status(400).json({ error: "Phone must look like 09XXXXXXXX." });
 
+    // Optional photos: up to 3 JPEGs (the page shrinks them first), checked again here.
+    const photos = [];
+    const prefix = "data:image/jpeg;base64,";
+    for (const ph of (Array.isArray(b.photos) ? b.photos.slice(0, 3) : [])) {
+      if (typeof ph !== "string" || !ph.startsWith(prefix) || ph.length > 400000)
+        return res.status(400).json({ error: "Photos must be JPEG images under 250 KB each." });
+      const buf = Buffer.from(ph.slice(prefix.length), "base64");
+      if (buf.length < 100 || buf.length > 250 * 1024 || buf[0] !== 0xff || buf[1] !== 0xd8 || buf[2] !== 0xff)
+        return res.status(400).json({ error: "One of the photos is not a valid JPEG image." });
+      photos.push(buf);
+    }
+
     for (let attempt = 0; attempt < 5; attempt++) {
       const client = await pool.connect();
       try {
@@ -111,6 +151,8 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
           [id, no, b.category, kebele, cleanText(b.locationDetail, 200), title, cleanText(b.description, 3000), phone,
            b.priority === "Urgent" ? "Urgent" : "Normal"]);
         await client.query("INSERT INTO report_updates (report_id,status,note) VALUES ($1,'Submitted','Report submitted')", [id]);
+        for (const buf of photos)
+          await client.query("INSERT INTO report_photos (report_id, mime, data) VALUES ($1,'image/jpeg',$2)", [id, buf]);
         await client.query("COMMIT");
         return res.status(201).json({ trackingNo: no });
       } catch (err) {
@@ -143,7 +185,9 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
     if (CATEGORIES.includes(req.query.category)) { params.push(req.query.category); where.push(`category = $${params.length}`); }
     const { rows } = await pool.query(
       `SELECT id, tracking_no, category, kebele, location_detail, title, description, phone, priority, status,
-              assigned_dept, created_at, updated_at
+              assigned_dept, created_at, updated_at,
+              (SELECT COALESCE(array_agg(p.id ORDER BY p.id), '{}'::int[]) FROM report_photos p
+                 WHERE p.report_id = citizen_reports.id) AS photo_ids
        FROM citizen_reports WHERE ${where.join(" AND ")}
        ORDER BY (priority='Urgent' AND status NOT IN ('Resolved','Rejected')) DESC, created_at DESC LIMIT 200`, params);
     res.json({ reports: rows });
@@ -236,6 +280,136 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
     if (!rowCount) return res.status(404).json({ error: "Announcement not found." });
     res.json({ ok: true });
   }));
+  // ---- staff: view a report photo (same kebele scope as the inbox) ----
+  app.get("/api/citizen-report-photos/:id", requireAuth, requireStaff, wrap(async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: "Invalid id." });
+    const r = (await pool.query(
+      `SELECT p.data, c.kebele FROM report_photos p JOIN citizen_reports c ON c.id = p.report_id WHERE p.id = $1`, [id])).rows[0];
+    if (!r || (req.user.role !== "admin" && r.kebele !== req.user.kebele)) return res.status(404).json({ error: "Not found." });
+    res.set({ "Content-Type": "image/jpeg", "Cache-Control": "private, max-age=3600", "X-Content-Type-Options": "nosniff" });
+    res.send(r.data);
+  }));
+
+  // ================= Periodic (monthly / quarterly) reports to Woreda administration =================
+  // Kebele officers: Monthly. Sector heads: Monthly or Quarterly. Administrator reviews.
+  const PERIOD_TYPES = ["Monthly", "Quarterly"];
+  const periodOk = (type, label) =>
+    type === "Monthly" ? /^\d{4}-(0[1-9]|1[0-2])$/.test(label)
+    : type === "Quarterly" ? /^\d{4}-Q[1-4]$/.test(label) : false;
+  const PR_COLS = `id, unit_type, unit_name, period_type, period_label, summary, achievements, challenges,
+    next_plan, status, feedback, submitted_by, submitted_name, reviewed_by, reviewed_at, created_at, updated_at`;
+
+  function myUnit(user) {
+    if (user.role === "kebele_officer" && user.kebele) return { type: "kebele", name: user.kebele, allowed: ["Monthly"] };
+    if (user.role === "sector_head" && user.sector) return { type: "sector", name: user.sector, allowed: ["Monthly", "Quarterly"] };
+    return null;
+  }
+  const adminOnly = (req, res, next) =>
+    req.user.role === "admin" ? next() : res.status(403).json({ error: "Administrator access required." });
+
+  app.get("/api/periodic-reports", requireAuth, wrap(async (req, res) => {
+    const where = [], params = [];
+    let unit = null;
+    if (req.user.role === "admin") {
+      for (const [q, col] of [["periodType", "period_type"], ["period", "period_label"], ["status", "status"], ["unitType", "unit_type"]]) {
+        const v = cleanText(req.query[q], 40);
+        if (v) { params.push(v); where.push(`${col} = $${params.length}`); }
+      }
+    } else {
+      unit = myUnit(req.user);
+      if (!unit) return res.json({ reports: [], unit: null });
+      params.push(unit.type, unit.name);
+      where.push("unit_type = $1 AND unit_name = $2");
+    }
+    const { rows } = await pool.query(
+      `SELECT ${PR_COLS} FROM periodic_reports ${where.length ? "WHERE " + where.join(" AND ") : ""}
+       ORDER BY period_label DESC, unit_name LIMIT 500`, params);
+    res.json({ reports: rows, unit });
+  }));
+
+  app.post("/api/periodic-reports", requireAuth, wrap(async (req, res) => {
+    const u = myUnit(req.user);
+    if (!u) return res.status(403).json({ error: "Only kebele officers and sector heads with an assigned kebele or sector submit these reports." });
+    const b = req.body || {};
+    const periodType = cleanText(b.periodType, 20), label = cleanText(b.period, 10);
+    if (!u.allowed.includes(periodType)) return res.status(400).json({ error: `Your role submits: ${u.allowed.join(" or ")} reports.` });
+    if (!periodOk(periodType, label)) return res.status(400).json({ error: "Choose a valid period." });
+    const summary = cleanText(b.summary, 4000);
+    if (!summary) return res.status(400).json({ error: "Summary is required." });
+    try {
+      const { rows } = await pool.query(
+        `INSERT INTO periodic_reports (id, unit_type, unit_name, period_type, period_label, summary, achievements,
+           challenges, next_plan, submitted_by, submitted_name)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING ${PR_COLS}`,
+        [crypto.randomUUID(), u.type, u.name, periodType, label, summary, cleanText(b.achievements, 4000),
+         cleanText(b.challenges, 4000), cleanText(b.nextPlan, 4000), req.user.email, req.user.name || ""]);
+      res.status(201).json({ report: rows[0] });
+    } catch (err) {
+      if (err.code === "23505") return res.status(409).json({ error: "A report for this period already exists. Edit it instead." });
+      throw err;
+    }
+  }));
+
+  app.put("/api/periodic-reports/:id", requireAuth, wrap(async (req, res) => {
+    const u = myUnit(req.user);
+    if (!u) return res.status(403).json({ error: "Not allowed." });
+    const cur = (await pool.query("SELECT status FROM periodic_reports WHERE id=$1 AND unit_type=$2 AND unit_name=$3",
+      [req.params.id, u.type, u.name])).rows[0];
+    if (!cur) return res.status(404).json({ error: "Report not found." });
+    if (cur.status === "Reviewed") return res.status(409).json({ error: "This report was already approved and cannot be edited." });
+    const b = req.body || {};
+    const summary = cleanText(b.summary, 4000);
+    if (!summary) return res.status(400).json({ error: "Summary is required." });
+    const { rows } = await pool.query(
+      `UPDATE periodic_reports SET summary=$2, achievements=$3, challenges=$4, next_plan=$5,
+         status='Submitted', submitted_by=$6, submitted_name=$7, updated_at=now()
+       WHERE id=$1 RETURNING ${PR_COLS}`,
+      [req.params.id, summary, cleanText(b.achievements, 4000), cleanText(b.challenges, 4000),
+       cleanText(b.nextPlan, 4000), req.user.email, req.user.name || ""]);
+    res.json({ report: rows[0] });
+  }));
+
+  app.patch("/api/periodic-reports/:id/review", requireAuth, adminOnly, wrap(async (req, res) => {
+    const status = req.body && req.body.status;
+    if (!["Reviewed", "Returned"].includes(status)) return res.status(400).json({ error: "Status must be Reviewed or Returned." });
+    const feedback = cleanText(req.body.feedback, 2000);
+    if (status === "Returned" && !feedback) return res.status(400).json({ error: "Write what needs to be corrected." });
+    const { rows } = await pool.query(
+      `UPDATE periodic_reports SET status=$2, feedback=$3, reviewed_by=$4, reviewed_at=now(), updated_at=now()
+       WHERE id=$1 RETURNING ${PR_COLS}`, [req.params.id, status, feedback, req.user.email]);
+    if (!rows.length) return res.status(404).json({ error: "Report not found." });
+    res.json({ report: rows[0] });
+  }));
+
+  // Administrator: who has submitted for a period and who is missing.
+  app.get("/api/periodic-reports-status", requireAuth, adminOnly, wrap(async (req, res) => {
+    const type = cleanText(req.query.periodType, 20), label = cleanText(req.query.period, 10);
+    if (!PERIOD_TYPES.includes(type) || !periodOk(type, label)) return res.status(400).json({ error: "Choose a valid period." });
+    const subs = (await pool.query(
+      "SELECT id, unit_type, unit_name, status FROM periodic_reports WHERE period_type=$1 AND period_label=$2", [type, label])).rows;
+    // A sector's quarterly report also covers each month of that quarter.
+    let qSubs = [];
+    if (type === "Monthly") {
+      const [y, m] = label.split("-");
+      qSubs = (await pool.query(
+        "SELECT id, unit_name, status FROM periodic_reports WHERE period_type='Quarterly' AND unit_type='sector' AND period_label=$1",
+        [`${y}-Q${Math.ceil(Number(m) / 3)}`])).rows;
+    }
+    const kebeles = type === "Monthly" ? (await pool.query("SELECT name FROM kebeles WHERE active = true ORDER BY name")).rows : [];
+    const sectors = (await pool.query("SELECT name FROM sectors WHERE active = true ORDER BY name")).rows;
+    const units = [
+      ...kebeles.map(k => ({ unitType: "kebele", unitName: k.name })),
+      ...sectors.map(s => ({ unitType: "sector", unitName: s.name }))
+    ].map(x => {
+      let hit = subs.find(s => s.unit_type === x.unitType && s.unit_name === x.unitName);
+      let via = null;
+      if (!hit && x.unitType === "sector") { hit = qSubs.find(s => s.unit_name === x.unitName); if (hit) via = "Quarterly"; }
+      return { ...x, submitted: !!hit, status: hit ? hit.status : null, id: hit ? hit.id : null, via };
+    });
+    res.json({ units, submitted: units.filter(u => u.submitted).length, total: units.length });
+  }));
+
 }
 
 module.exports = { initTables, mount, WHOLE, STATUSES, CATEGORIES, TYPES };

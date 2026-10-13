@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monthly & Quarterly Reports – Shashogo Woreda</title>
+<style>
+:root{--bg:#f1f3f6;--card:#fff;--ink:#16202e;--mute:#667085;--line:#e1e5ec;--blue:#1565a8;--chip:#e9edf3;--ok:#15803d;--red:#b91c1c;--amber:#93650a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,"Noto Sans Ethiopic",sans-serif}
+header{background:#0b1224;color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+header a{color:#cfe0f5;font-size:13px;text-decoration:none;margin-right:12px}header b{font-size:15px}
+header button{background:#fff;color:#0b1224;border:0;border-radius:8px;padding:5px 10px;font-weight:600}
+main{padding:12px;max-width:760px;margin:auto}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{flex:1;border:0;background:var(--chip);padding:9px;border-radius:8px;font-weight:600;font-family:inherit}
+.tabs button.on{background:var(--blue);color:#fff}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+h2{margin:0 0 6px;font-size:16px}
+label{display:block;font-size:12px;color:var(--mute);margin:8px 0 3px}
+input,select,textarea{width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+input[type=checkbox]{width:auto}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{background:var(--blue);color:#fff;border:0;border-radius:8px;padding:9px 14px;font-weight:600;margin-top:12px;font-family:inherit}
+.btn.alt{background:var(--chip);color:var(--ink)}
+.btn.ok{background:var(--ok)}.btn.bad{background:#fee4e2;color:var(--red)}
+.btn.sm{padding:6px 10px;margin:8px 6px 0 0;font-size:13px}
+.item{border-top:1px solid var(--line);padding:12px 0}.item:first-child{border-top:0}
+.top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.meta{color:var(--mute);font-size:12px}
+.pill{font-size:11px;font-weight:700;border-radius:20px;padding:2px 9px;background:var(--chip);white-space:nowrap}
+.pill.Approved,.pill.Reviewed{background:#dcfce7;color:var(--ok)}
+.pill.Returned{background:#fee4e2;color:var(--red)}
+.pill.Submitted{background:#fff4e0;color:var(--amber)}
+.sec{margin-top:8px}.sec b{font-size:12px;color:var(--mute);display:block}.sec div{white-space:pre-wrap}
+.fb{margin-top:8px;padding:8px;border-radius:8px;background:#fff4e0;white-space:pre-wrap}
+.err{color:var(--red);margin-top:8px}
+.hide{display:none!important}
+.toast{position:fixed;left:12px;right:12px;bottom:14px;background:#0b1224;color:#fff;padding:12px;border-radius:10px;text-align:center;z-index:9}
+table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line)}th{color:var(--mute);font-size:12px}
+.scroll{overflow-x:auto}
+.miss{color:var(--red);font-weight:600}
+@media print{header,.noprint,.toast,.btn{display:none!important}body{background:#fff}.card{border:0;padding:0}.item{break-inside:avoid}}
+</style></head>
+<body>
+<header>
+  <b id="h-title"></b>
+  <span><a href="/" id="h-home"></a><a href="/admin" id="h-admin"></a><a href="/reports" id="h-cit"></a><button id="langBtn" type="button"></button></span>
+</header>
+<main id="main"></main>
+<div class="toast hide" id="toast"></div>
+
+<script>
+var $ = function (i) { return document.getElementById(i); };
+var USER = null;
+
+/* ---------------- Language ---------------- */
+var T = {
+ en: {
+  title: "Monthly & Quarterly Reports", home: "Home", admin: "Admin Panel", cit: "Citizen Reports",
+  signIn: "Please sign in from the Admin Panel first, then come back to this page.", signInBtn: "Go to sign in",
+  noRole: "Your account does not submit these reports.", noUnit: "Your account has no kebele or sector assigned. Ask the administrator.",
+  period: "Period", reportType: "Report type", Monthly: "Monthly", Quarterly: "Quarterly", month: "Month", quarter: "Quarter (year and number)",
+  summary: "Summary", achievements: "Achievements", challenges: "Challenges", nextPlan: "Plan for the next period",
+  submit: "Submit report", saveChanges: "Save changes", clear: "Clear", edit: "Edit", feedback: "Comment",
+  Submitted: "Submitted", Approved: "Approved", Returned: "Returned for correction", Reviewed: "Approved",
+  newReport: "New report", editReport: "Edit report", myReports: "My reports", none: "Nothing here yet.",
+  kebeleHint: "Your monthly report goes to the Woreda administration.",
+  officerHint: "Your monthly report goes to your sector head.",
+  headHint: "Approve your officers' reports, then send your own report to the Woreda administration.",
+  tabOfficers: "Officer reports", tabMine: "My report to administration",
+  show: "Show", approve: "Approve", returnBtn: "Return for correction", promptReturn: "What needs to be corrected?",
+  officersTable: "Officers", noOfficers: "No sector officers are set up for this sector yet.",
+  fillFrom: "Fill from approved officer reports", filled: "Filled from {n} approved report(s). Please check and edit before sending.",
+  noApproved: "There are no approved officer reports for this period yet.",
+  sent: "Report sent.", saved: "Saved.", sectorWord: "Sector", kebeleWord: "Kebele",
+  allReports: "All reports", anyPeriod: "Any period", status: "Status", allStatuses: "All statuses",
+  whoSent: "Who has sent", missing: "Not sent", sentCount: "{a} of {b} sent", viaQuarterly: "(covered by quarterly report)",
+  printBtn: "Print / Save as PDF", pickPeriod: "Choose a period first (untick 'Any period').",
+  by: "by", updated: "Updated"
+ },
+ am: {
+  title: "ወርሃዊ እና የሩብ ዓመት ሪፖርቶች", home: "መነሻ", admin: "የአስተዳዳሪ ፓነል", cit: "የነዋሪ ሪፖርቶች",
+  signIn: "እባክዎ መጀመሪያ ከአስተዳዳሪ ፓነል ይግቡ፣ ከዚያ ወደዚህ ገጽ ይመለሱ።", signInBtn: "ወደ መግቢያ ሂድ",
+  noRole: "የእርስዎ መለያ እነዚህን ሪፖርቶች አያቀርብም።", noUnit: "ለመለያዎ ቀበሌ ወይም ዘርፍ አልተመደበም። አስተዳዳሪውን ያነጋግሩ።",
+  period: "ወቅት", reportType: "የሪፖርት ዓይነት", Monthly: "ወርሃዊ", Quarterly: "የሩብ ዓመት", month: "ወር", quarter: "ሩብ ዓመት (ዓመት እና ቁጥር)",
+  summary: "ማጠቃለያ", achievements: "የተከናወኑ ሥራዎች", challenges: "ችግሮች", nextPlan: "የሚቀጥለው ወቅት ዕቅድ",
+  submit: "ሪፖርት ላክ", saveChanges: "ለውጦችን አስቀምጥ", clear: "አጽዳ", edit: "አርም", feedback: "አስተያየት",
+  Submitted: "ተልኳል", Approved: "ጸድቋል", Returned: "ለማስተካከል ተመልሷል", Reviewed: "ጸድቋል",
+  newReport: "አዲስ ሪፖርት", editReport: "ሪፖርት አርም", myReports: "ሪፖርቶቼ", none: "እስካሁን ምንም የለም።",
+  kebeleHint: "ወርሃዊ ሪፖርትዎ ለወረዳ አስተዳደር ይላካል።",
+  officerHint: "ወርሃዊ ሪፖርትዎ ለዘርፍ ኃላፊዎ ይላካል።",
+  headHint: "የሠራተኞችዎን ሪፖርቶች ያጽድቁ፣ ከዚያ የራስዎን ሪፖርት ለወረዳ አስተዳደር ይላኩ።",
+  tabOfficers: "የሠራተኞች ሪፖርቶች", tabMine: "ለአስተዳደር የሚላክ ሪፖርቴ",
+  show: "አሳይ", approve: "አጽድቅ", returnBtn: "ለማስተካከል መልስ", promptReturn: "ምን መስተካከል አለበት?",
+  officersTable: "ሠራተኞች", noOfficers: "ለዚህ ዘርፍ እስካሁን የዘርፍ ሠራተኛ አልተመዘገበም።",
+  fillFrom: "ከጸደቁ የሠራተኞች ሪፖርቶች ሙላ", filled: "ከ{n} ከጸደቁ ሪፖርቶች ተሞልቷል። ከመላክዎ በፊት ይፈትሹ፣ ያርሙ።",
+  noApproved: "ለዚህ ወቅት የጸደቀ የሠራተኛ ሪፖርት እስካሁን የለም።",
+  sent: "ሪፖርቱ ተልኳል።", saved: "ተቀምጧል።", sectorWord: "ዘርፍ", kebeleWord: "ቀበሌ",
+  allReports: "ሁሉም ሪፖርቶች", anyPeriod: "ማንኛውም ወቅት", status: "ሁኔታ", allStatuses: "ሁሉም ሁኔታዎች",
+  whoSent: "ማን ልኳል", missing: "ያልላኩ", sentCount: "ከ{b} ውስጥ {a} ልከዋል", viaQuarterly: "(በሩብ ዓመት ሪፖርት የተሸፈነ)",
+  printBtn: "አትም / እንደ PDF አስቀምጥ", pickPeriod: "መጀመሪያ ወቅት ይምረጡ ('ማንኛውም ወቅት' የሚለውን ያጥፉ)።",
+  by: "በ", updated: "የተዘመነው"
+ }
+};
+var lang = "en";
+try { lang = localStorage.getItem("swids_lang") || "en"; } catch (e) {}
+function t(k) { return (T[lang] && T[lang][k]) || T.en[k] || k; }
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+function when(d) { try { return new Date(d).toLocaleDateString(); } catch (e) { return d; } }
+function toast(m) { var e = $("toast"); e.textContent = m; e.classList.remove("hide"); setTimeout(function () { e.classList.add("hide"); }, 3500); }
+function fail(e) { toast(e.message); }
+function api(method, url, body) {
+  return fetch(url, { method: method, headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: body ? JSON.stringify(body) : undefined })
+    .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) throw new Error(d.error || "Error " + r.status); return d; }); });
+}
+function applyChrome() {
+  document.documentElement.lang = lang === "am" ? "am" : "en";
+  $("h-title").textContent = t("title"); $("h-home").textContent = t("home"); $("h-admin").textContent = t("admin"); $("h-cit").textContent = t("cit");
+  $("langBtn").textContent = lang === "am" ? "English" : "አማርኛ";
+}
+$("langBtn").addEventListener("click", function () {
+  lang = lang === "am" ? "en" : "am";
+  try { localStorage.setItem("swids_lang", lang); } catch (e) {}
+  start();
+});
+
+/* ---------------- Period controls ---------------- */
+function curMonth() { var d = new Date(); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2); }
+function curQ() { return "Q" + (Math.floor(new Date().getMonth() / 3) + 1); }
+function periodHTML(p, types) {
+  var single = types.length === 1;
+  return '<div class="row">' +
+    '<div' + (single ? ' class="hide"' : '') + '><label>' + esc(t("reportType")) + '</label><select id="' + p + '-type" onchange="syncPeriod(\'' + p + '\')">' +
+      types.map(function (x) { return '<option value="' + x + '">' + esc(t(x)) + '</option>'; }).join("") + '</select></div>' +
+    '<div id="' + p + '-mwrap"><label>' + esc(t("month")) + '</label><input type="month" id="' + p + '-month" value="' + curMonth() + '"></div>' +
+    '<div id="' + p + '-qwrap" class="hide"><label>' + esc(t("quarter")) + '</label><div class="row">' +
+      '<input type="number" id="' + p + '-year" min="2020" max="2100" value="' + new Date().getFullYear() + '">' +
+      '<select id="' + p + '-qn">' + ["Q1", "Q2", "Q3", "Q4"].map(function (q) { return '<option' + (q === curQ() ? " selected" : "") + '>' + q + '</option>'; }).join("") + '</select></div></div>' +
+    '</div>';
+}
+function syncPeriod(p) {
+  var q = $(p + "-type").value === "Quarterly";
+  $(p + "-mwrap").classList.toggle("hide", q);
+  $(p + "-qwrap").classList.toggle("hide", !q);
+}
+function readPeriod(p) {
+  var type = $(p + "-type").value;
+  return { type: type, label: type === "Quarterly" ? $(p + "-year").value + "-" + $(p + "-qn").value : $(p + "-month").value };
+}
+function setPeriod(p, type, label) {
+  $(p + "-type").value = type; syncPeriod(p);
+  if (type === "Quarterly") { $(p + "-year").value = label.slice(0, 4); $(p + "-qn").value = label.slice(5); }
+  else $(p + "-month").value = label;
+}
+function lockPeriod(p, on) { ["type", "month", "year", "qn"].forEach(function (x) { $(p + "-" + x).disabled = on; }); }
+
+/* ---------------- Report form (shared) ---------------- */
+function formHTML(p, title) {
+  return '<div class="card"><h2 id="' + p + '-title">' + esc(title) + '</h2>' + '<input type="hidden" id="' + p + '-id">' + '@PERIOD@' +
+    '<label>' + esc(t("summary")) + ' *</label><textarea id="' + p + '-sum" rows="3" maxlength="4000"></textarea>' +
+    '<label>' + esc(t("achievements")) + '</label><textarea id="' + p + '-ach" rows="3" maxlength="4000"></textarea>' +
+    '<label>' + esc(t("challenges")) + '</label><textarea id="' + p + '-chal" rows="3" maxlength="4000"></textarea>' +
+    '<label>' + esc(t("nextPlan")) + '</label><textarea id="' + p + '-plan" rows="3" maxlength="4000"></textarea>' +
+    '@EXTRA@<button class="btn" id="' + p + '-go" onclick="sendReport(\'' + p + '\')">' + esc(t("submit")) + '</button> ' +
+    '<button class="btn alt" onclick="clearForm(\'' + p + '\')">' + esc(t("clear")) + '</button><div class="err" id="' + p + '-err"></div></div>';
+}
+function buildForm(p, title, types, extra) {
+  return formHTML(p, title).replace("@PERIOD@", periodHTML(p, types)).replace("@EXTRA@", extra || "");
+}
+var FORMS = {}; // prefix -> { kind: "periodic" | "officer", after: fn }
+function clearForm(p) {
+  ["sum", "ach", "chal", "plan"].forEach(function (x) { $(p + "-" + x).value = ""; });
+  $(p + "-id").value = ""; $(p + "-err").textContent = ""; lockPeriod(p, false);
+  $(p + "-title").textContent = t("newReport"); $(p + "-go").textContent = t("submit");
+}
+function sendReport(p) {
+  var f = FORMS[p], id = $(p + "-id").value, per = readPeriod(p);
+  var b = { summary: $(p + "-sum").value, achievements: $(p + "-ach").value, challenges: $(p + "-chal").value, nextPlan: $(p + "-plan").value };
+  if (!id) { b.period = per.label; if (f.kind === "periodic") b.periodType = per.type; }
+  var url = (f.kind === "officer" ? "/api/officer-reports" : "/api/periodic-reports") + (id ? "/" + encodeURIComponent(id) : "");
+  $(p + "-err").textContent = "";
+  api(id ? "PUT" : "POST", url, b).then(function () { toast(t(id ? "saved" : "sent")); clearForm(p); f.after(); }).catch(function (e) { $(p + "-err").textContent = e.message; });
+}
+var CACHE = {}; // id -> report
+function editReport(p, id) {
+  var r = CACHE[id]; if (!r) return;
+  $(p + "-id").value = id;
+  $(p + "-sum").value = r.summary || ""; $(p + "-ach").value = r.achievements || "";
+  $(p + "-chal").value = r.challenges || ""; $(p + "-plan").value = r.next_plan || "";
+  if (FORMS[p].kind === "periodic") setPeriod(p, r.period_type, r.period_label); else setPeriod(p, "Monthly", r.period_label);
+  lockPeriod(p, true);
+  $(p + "-title").textContent = t("editReport"); $(p + "-go").textContent = t("saveChanges");
+  $(p + "-title").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/* ---------------- Report cards ---------------- */
+function sec(k, v) { return v ? '<div class="sec"><b>' + esc(t(k)) + '</b><div>' + esc(v) + '</div></div>' : ""; }
+function body(r) {
+  return sec("summary", r.summary) + sec("achievements", r.achievements) + sec("challenges", r.challenges) + sec("nextPlan", r.next_plan) +
+    (r.feedback ? '<div class="fb"><b>' + esc(t("feedback")) + ':</b> ' + esc(r.feedback) + '</div>' : "");
+}
+function card(title, meta, r, actions) {
+  CACHE[r.id] = r;
+  return '<div class="item"><div class="top"><div><b>' + esc(title) + '</b><div class="meta">' + esc(meta) + '</div></div>' +
+    '<span class="pill ' + esc(r.status) + '">' + esc(t(r.status)) + '</span></div>' + body(r) + (actions || "") + '</div>';
+}
+function btn(label, fn, cls) { return '<button class="btn sm ' + (cls || "alt") + '" onclick="' + fn + '">' + esc(label) + '</button>'; }
+
+/* ---------------- Views by role ---------------- */
+function msg(text, link) {
+  $("main").innerHTML = '<div class="card"><p>' + esc(text) + '</p>' + (link ? '<a class="btn" style="display:inline-block;text-decoration:none" href="/admin">' + esc(t("signInBtn")) + '</a>' : "") + '</div>';
+}
+
+function viewKebele() {
+  if (!USER.kebele) return msg(t("noUnit"));
+  FORMS.k = { kind: "periodic", after: loadKebele };
+  $("main").innerHTML = '<div class="card"><h2>' + esc(USER.kebele) + '</h2><div class="meta">' + esc(t("kebeleHint")) + '</div></div>' +
+    buildForm("k", t("newReport"), ["Monthly"]) +
+    '<div class="card"><h2>' + esc(t("myReports")) + '</h2><div id="k-list"></div></div>';
+  loadKebele();
+}
+function loadKebele() {
+  api("GET", "/api/periodic-reports").then(function (d) {
+    $("k-list").innerHTML = d.reports.map(function (r) {
+      return card(r.period_label + " · " + t(r.period_type), t("updated") + " " + when(r.updated_at), r,
+        r.status === "Reviewed" ? "" : btn(t("edit"), "editReport('k','" + r.id + "')"));
+    }).join("") || '<div class="meta">' + esc(t("none")) + '</div>';
+  }).catch(fail);
+}
+
+function viewOfficer() {
+  if (!USER.sector) return msg(t("noUnit"));
+  FORMS.o = { kind: "officer", after: loadOfficer };
+  $("main").innerHTML = '<div class="card"><h2>' + esc(USER.sector) + '</h2><div class="meta">' + esc(t("officerHint")) + '</div></div>' +
+    buildForm("o", t("newReport"), ["Monthly"]) +
+    '<div class="card"><h2>' + esc(t("myReports")) + '</h2><div id="o-list"></div></div>';
+  loadOfficer();
+}
+function loadOfficer() {
+  api("GET", "/api/officer-reports").then(function (d) {
+    $("o-list").innerHTML = d.reports.map(function (r) {
+      return card(r.period_label, t("updated") + " " + when(r.updated_at), r,
+        r.status === "Approved" ? "" : btn(t("edit"), "editReport('o','" + r.id + "')"));
+    }).join("") || '<div class="meta">' + esc(t("none")) + '</div>';
+  }).catch(fail);
+}
+
+function viewHead() {
+  if (!USER.sector) return msg(t("noUnit"));
+  FORMS.h = { kind: "periodic", after: loadHeadMine };
+  $("main").innerHTML = '<div class="card"><h2>' + esc(USER.sector) + '</h2><div class="meta">' + esc(t("headHint")) + '</div></div>' +
+    '<div class="tabs"><button id="tb-off" class="on" onclick="headTab(\'off\')">' + esc(t("tabOfficers")) + '</button>' +
+    '<button id="tb-mine" onclick="headTab(\'mine\')">' + esc(t("tabMine")) + '</button></div>' +
+    '<section id="hs-off"><div class="card">' + periodHTML("hq", ["Monthly", "Quarterly"]) +
+      '<button class="btn" onclick="loadRollup()">' + esc(t("show")) + '</button></div><div id="roll"></div></section>' +
+    '<section id="hs-mine" class="hide">' +
+      buildForm("h", t("newReport"), ["Monthly", "Quarterly"], '<button class="btn alt" style="margin-right:6px" onclick="fillFromOfficers()">' + esc(t("fillFrom")) + '</button>') +
+      '<div class="card"><h2>' + esc(t("myReports")) + '</h2><div id="h-list"></div></div></section>';
+  loadRollup(); loadHeadMine();
+}
+function headTab(x) {
+  ["off", "mine"].forEach(function (k) { $("hs-" + k).classList.toggle("hide", k !== x); $("tb-" + k).classList.toggle("on", k === x); });
+}
+function loadRollup() {
+  var per = readPeriod("hq");
+  api("GET", "/api/officer-reports-rollup?period=" + encodeURIComponent(per.label)).then(function (d) {
+    var people = {}; // email -> { name, by month }
+    d.officers.forEach(function (o) { people[o.email] = { name: o.name || o.email, m: {} }; });
+    d.reports.forEach(function (r) {
+      if (!people[r.submitted_by]) people[r.submitted_by] = { name: r.submitted_name || r.submitted_by, m: {} };
+      people[r.submitted_by].m[r.period_label] = r.status;
+    });
+    var emails = Object.keys(people), html = "";
+    if (!emails.length) html += '<div class="card"><div class="meta">' + esc(t("noOfficers")) + '</div></div>';
+    else html += '<div class="card"><h2>' + esc(t("officersTable")) + '</h2><div class="scroll"><table><tr><th></th>' +
+      d.months.map(function (m) { return "<th>" + esc(m) + "</th>"; }).join("") + "</tr>" +
+      emails.map(function (e) {
+        return "<tr><td>" + esc(people[e].name) + "</td>" + d.months.map(function (m) {
+          var s = people[e].m[m];
+          return "<td>" + (s ? '<span class="pill ' + esc(s) + '">' + esc(t(s)) + "</span>" : '<span class="miss">' + esc(t("missing")) + "</span>") + "</td>";
+        }).join("") + "</tr>";
+      }).join("") + "</table></div></div>";
+    html += '<div class="card">' + (d.reports.map(function (r) {
+      return card((r.submitted_name || r.submitted_by) + " · " + r.period_label, t("updated") + " " + when(r.updated_at), r,
+        btn(t("approve"), "reviewOfficer('" + r.id + "','Approved')", "ok") + btn(t("returnBtn"), "reviewOfficer('" + r.id + "','Returned')", "bad"));
+    }).join("") || '<div class="meta">' + esc(t("none")) + "</div>") + "</div>";
+    $("roll").innerHTML = html;
+  }).catch(fail);
+}
+function reviewOfficer(id, status) {
+  var fb = "";
+  if (status === "Returned") { fb = prompt(t("promptReturn")); if (fb === null) return; }
+  api("PATCH", "/api/officer-reports/" + encodeURIComponent(id) + "/review", { status: status, feedback: fb }).then(loadRollup).catch(fail);
+}
+function loadHeadMine() {
+  api("GET", "/api/periodic-reports").then(function (d) {
+    $("h-list").innerHTML = d.reports.map(function (r) {
+      return card(r.period_label + " · " + t(r.period_type), t("updated") + " " + when(r.updated_at), r,
+        r.status === "Reviewed" ? "" : btn(t("edit"), "editReport('h','" + r.id + "')"));
+    }).join("") || '<div class="meta">' + esc(t("none")) + '</div>';
+  }).catch(fail);
+}
+function fillFromOfficers() {
+  var per = readPeriod("h");
+  api("GET", "/api/officer-reports-rollup?period=" + encodeURIComponent(per.label)).then(function (d) {
+    var ok = d.reports.filter(function (r) { return r.status === "Approved"; });
+    if (!ok.length) { toast(t("noApproved")); return; }
+    function join(key) {
+      return ok.filter(function (r) { return (r[key] || "").trim(); }).map(function (r) {
+        return "• " + (r.submitted_name || r.submitted_by) + (d.months.length > 1 ? " (" + r.period_label + ")" : "") + ": " + r[key].trim();
+      }).join("\n\n");
+    }
+    $("h-sum").value = join("summary"); $("h-ach").value = join("achievements");
+    $("h-chal").value = join("challenges"); $("h-plan").value = join("next_plan");
+    toast(t("filled").replace("{n}", ok.length));
+  }).catch(fail);
+}
+
+function viewAdmin() {
+  $("main").innerHTML = '<div class="card noprint"><h2>' + esc(t("allReports")) + '</h2>' + periodHTML("ap", ["Monthly", "Quarterly"]) +
+    '<label><input type="checkbox" id="ap-any" checked> ' + esc(t("anyPeriod")) + '</label>' +
+    '<label>' + esc(t("status")) + '</label><select id="ap-st"><option value="">' + esc(t("allStatuses")) + '</option>' +
+    ["Submitted", "Reviewed", "Returned"].map(function (s) { return '<option value="' + s + '">' + esc(t(s)) + '</option>'; }).join("") + '</select>' +
+    '<button class="btn" onclick="loadAdmin()">' + esc(t("show")) + '</button> ' +
+    '<button class="btn alt" onclick="loadWho()">' + esc(t("whoSent")) + '</button> ' +
+    '<button class="btn alt" onclick="window.print()">' + esc(t("printBtn")) + '</button></div>' +
+    '<div id="who"></div><div class="card"><div id="a-list"></div></div>';
+  loadAdmin();
+}
+function loadAdmin() {
+  var per = readPeriod("ap"), q = ["periodType=" + encodeURIComponent(per.type)];
+  if (!$("ap-any").checked) q.push("period=" + encodeURIComponent(per.label)); else q = [];
+  if ($("ap-st").value) q.push("status=" + encodeURIComponent($("ap-st").value));
+  api("GET", "/api/periodic-reports" + (q.length ? "?" + q.join("&") : "")).then(function (d) {
+    $("a-list").innerHTML = d.reports.map(function (r) {
+      return card(r.unit_name + " (" + t(r.unit_type === "sector" ? "sectorWord" : "kebeleWord") + ") — " + r.period_label + " · " + t(r.period_type),
+        t("by") + " " + (r.submitted_name || r.submitted_by) + " · " + t("updated") + " " + when(r.updated_at), r,
+        '<div class="noprint">' + btn(t("approve"), "reviewAdmin('" + r.id + "','Reviewed')", "ok") + btn(t("returnBtn"), "reviewAdmin('" + r.id + "','Returned')", "bad") + "</div>");
+    }).join("") || '<div class="meta">' + esc(t("none")) + '</div>';
+  }).catch(fail);
+}
+function reviewAdmin(id, status) {
+  var fb = "";
+  if (status === "Returned") { fb = prompt(t("promptReturn")); if (fb === null) return; }
+  api("PATCH", "/api/periodic-reports/" + encodeURIComponent(id) + "/review", { status: status, feedback: fb }).then(loadAdmin).catch(fail);
+}
+function loadWho() {
+  if ($("ap-any").checked) { toast(t("pickPeriod")); return; }
+  var per = readPeriod("ap");
+  api("GET", "/api/periodic-reports-status?periodType=" + encodeURIComponent(per.type) + "&period=" + encodeURIComponent(per.label)).then(function (d) {
+    $("who").innerHTML = '<div class="card"><h2>' + esc(t("whoSent")) + " — " + esc(t("sentCount").replace("{a}", d.submitted).replace("{b}", d.total)) + "</h2><table>" +
+      d.units.map(function (u) {
+        return "<tr><td>" + esc(u.unitName) + ' <span class="meta">(' + esc(t(u.unitType === "sector" ? "sectorWord" : "kebeleWord")) + ")</span></td><td>" +
+          (u.submitted ? '<span class="pill ' + esc(u.status) + '">' + esc(t(u.status)) + "</span>" + (u.via ? ' <span class="meta">' + esc(t("viaQuarterly")) + "</span>" : "")
+                       : '<span class="miss">' + esc(t("missing")) + "</span>") + "</td></tr>";
+      }).join("") + "</table></div>";
+  }).catch(fail);
+}
+
+/* ---------------- Start ---------------- */
+function start() {
+  applyChrome(); CACHE = {};
+  api("GET", "/api/me").then(function (d) {
+    USER = d.user;
+    var v = { kebele_officer: viewKebele, sector_officer: viewOfficer, sector_head: viewHead, admin: viewAdmin }[USER.role];
+    if (!v) return msg(t("noRole"));
+    v();
+    ["k", "o", "h", "ap", "hq"].forEach(function (p) { if ($(p + "-type")) syncPeriod(p); });
+  }).catch(function () { USER = null; msg(t("signIn"), true); });
+}
+start();
+</script></body></html>

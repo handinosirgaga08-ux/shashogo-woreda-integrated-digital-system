@@ -140,10 +140,11 @@ function requireAdmin(req, res, next) {
 // ---------------- Roles and data scope ----------------
 // admin          -> sees everything
 // sector_head    -> sees records of their sector, across all kebeles
+// sector_officer -> works under a sector head; sees records of their sector
 // kebele_officer -> sees records of their kebele only
 // A scoped user with no kebele/sector assigned sees nothing (safe default).
 
-const ROLES = ["admin", "sector_head", "kebele_officer"];
+const ROLES = ["admin", "sector_head", "sector_officer", "kebele_officer"];
 
 function scopeClause(user, params, cols = {}) {
   const k = cols.kebele || "kebele";
@@ -152,11 +153,12 @@ function scopeClause(user, params, cols = {}) {
     params.push(user.kebele);
     return `${k} = $${params.length}`;
   }
-  if (user.role === "sector_head") {
+  if (user.role === "sector_head" || user.role === "sector_officer") {
     params.push(user.sector);
     return `${s} = $${params.length}`;
   }
-  return "TRUE";
+  if (user.role === "admin") return "TRUE";
+  return "FALSE"; // unknown role: see nothing
 }
 
 // Evaluations are scoped through the record they belong to.
@@ -221,12 +223,29 @@ async function initDb() {
       email TEXT NOT NULL UNIQUE,
       name TEXT NOT NULL DEFAULT '',
       password_hash TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('admin','sector_head','kebele_officer')),
+      role TEXT NOT NULL CHECK (role IN ('admin','sector_head','sector_officer','kebele_officer')),
       kebele TEXT,
       sector TEXT,
       active BOOLEAN NOT NULL DEFAULT true,
       created_at TIMESTAMPTZ DEFAULT now()
     );
+  `);
+
+  // Existing databases were created with only three allowed roles. Widen the
+  // rule once so the new sector_officer role can be saved. Safe to run every start.
+  await pool.query(`
+    DO $$
+    DECLARE def text;
+    BEGIN
+      SELECT pg_get_constraintdef(oid) INTO def
+        FROM pg_constraint
+       WHERE conname = 'users_role_check' AND conrelid = 'users'::regclass;
+      IF def IS NOT NULL AND def NOT LIKE '%sector_officer%' THEN
+        ALTER TABLE users DROP CONSTRAINT users_role_check;
+        ALTER TABLE users ADD CONSTRAINT users_role_check
+          CHECK (role IN ('admin','sector_head','sector_officer','kebele_officer'));
+      END IF;
+    END $$;
   `);
 
   await citizen.initTables(pool);
@@ -392,12 +411,12 @@ function validateRecord(body) {
 // against the managed lists.
 async function applyScopeAndLists(user, record) {
   if (user.role === "kebele_officer") record.kebele = user.kebele || "";
-  if (user.role === "sector_head") record.sector = user.sector || "";
+  if (user.role === "sector_head" || user.role === "sector_officer") record.sector = user.sector || "";
 
   if (user.role === "kebele_officer" && !user.kebele) {
     return "Your account has no kebele assigned. Ask the administrator.";
   }
-  if (user.role === "sector_head" && !user.sector) {
+  if ((user.role === "sector_head" || user.role === "sector_officer") && !user.sector) {
     return "Your account has no sector assigned. Ask the administrator.";
   }
 
@@ -620,7 +639,7 @@ function listRoutes(route, table, cascade) {
 }
 
 listRoutes("kebeles", "kebeles", [["records", "kebele"], ["evaluations", "kebele"], ["users", "kebele"]]);
-listRoutes("sectors", "sectors", [["records", "sector"], ["users", "sector"]]);
+listRoutes("sectors", "sectors", [["records", "sector"], ["users", "sector"], ["officer_reports", "sector"]]);
 
 // ---------------- Routes: users (administrator only) ----------------
 
@@ -629,9 +648,10 @@ function userView(r) {
 }
 
 function checkUserScope(role, kebele, sector) {
-  if (!ROLES.includes(role)) return "Role must be admin, sector_head, or kebele_officer.";
+  if (!ROLES.includes(role)) return "Role must be admin, sector_head, sector_officer, or kebele_officer.";
   if (role === "kebele_officer" && !kebele) return "A kebele officer needs a kebele.";
   if (role === "sector_head" && !sector) return "A sector head needs a sector.";
+  if (role === "sector_officer" && !sector) return "A sector officer needs a sector.";
   return null;
 }
 
@@ -660,7 +680,7 @@ app.post("/api/users", requireAuth, requireAdmin, wrap(async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7)
        RETURNING id, email, name, role, kebele, sector, active`,
       [crypto.randomUUID(), email, name, await bcrypt.hash(password, 10), role,
-       role === "kebele_officer" ? kebele : null, role === "sector_head" ? sector : null]
+       role === "kebele_officer" ? kebele : null, (role === "sector_head" || role === "sector_officer") ? sector : null]
     );
     res.status(201).json({ user: userView(rows[0]) });
   } catch (err) {
@@ -693,7 +713,7 @@ app.put("/api/users/:id", requireAuth, requireAdmin, wrap(async (req, res) => {
   const { rows } = await pool.query(
     `UPDATE users SET name=$2, role=$3, kebele=$4, sector=$5, active=$6, password_hash=$7
      WHERE id=$1 RETURNING id, email, name, role, kebele, sector, active`,
-    [u.id, name, role, role === "kebele_officer" ? kebele : null, role === "sector_head" ? sector : null, active, hash]
+    [u.id, name, role, role === "kebele_officer" ? kebele : null, (role === "sector_head" || role === "sector_officer") ? sector : null, active, hash]
   );
   res.json({ user: userView(rows[0]) });
 }));

@@ -300,6 +300,7 @@
               <select id="uRole">
                 <option value="kebele_officer" data-i18n="kebele_officer"></option>
                 <option value="sector_head" data-i18n="sector_head"></option>
+                <option value="sector_officer" data-i18n="sector_officer"></option>
                 <option value="admin" data-i18n="admin"></option>
               </select>
             </label>
@@ -363,7 +364,7 @@ const T = {
     rename: "Rename", activate: "Activate", deactivate: "Deactivate", inactiveTag: "inactive",
     listHint: "Renaming a kebele or sector also updates every record that uses the old name.",
     noItems: "Nothing here yet.", userHint: "Create accounts for sector heads and kebele officers.",
-    role: "Role", admin: "Woreda administrator", sector_head: "Sector head", kebele_officer: "Kebele officer",
+    role: "Role", admin: "Woreda administrator", sector_head: "Sector head", sector_officer: "Sector officer", kebele_officer: "Kebele officer",
     saveUser: "Save user", scope: "Scope", noUsers: "No users yet.", pwKeep: "Leave blank to keep the current password",
     selectOne: "— select —", promptRename: "New name:",
     citizenReports: "Citizen Reports"
@@ -401,7 +402,7 @@ const T = {
     rename: "ስም ቀይር", activate: "አግብር", deactivate: "አቦዝን", inactiveTag: "ንቁ ያልሆነ",
     listHint: "የቀበሌ ወይም የዘርፍ ስም ሲቀየር ያንን ስም የሚጠቀሙ ሁሉም መዝገቦች ይዘምናሉ።",
     noItems: "እስካሁን ምንም የለም።", userHint: "ለዘርፍ ኃላፊዎች እና ለቀበሌ ሠራተኞች መለያ ይፍጠሩ።",
-    role: "ሚና", admin: "የወረዳ አስተዳዳሪ", sector_head: "የዘርፍ ኃላፊ", kebele_officer: "የቀበሌ ሠራተኛ",
+    role: "ሚና", admin: "የወረዳ አስተዳዳሪ", sector_head: "የዘርፍ ኃላፊ", sector_officer: "የዘርፍ ሠራተኛ", kebele_officer: "የቀበሌ ሠራተኛ",
     saveUser: "ተጠቃሚ አስቀምጥ", scope: "ወሰን", noUsers: "እስካሁን ተጠቃሚ የለም።", pwKeep: "አሁን ያለውን ለማቆየት ባዶ ይተዉ",
     selectOne: "— ይምረጡ —", promptRename: "አዲስ ስም፡",
     citizenReports: "የነዋሪ ሪፖርቶች"
@@ -552,11 +553,11 @@ function setSelectValue(id, value) {
   el.value = value || "";
 }
 
-// Kebele officers are locked to their kebele; sector heads to their sector.
+// Kebele officers are locked to their kebele; sector heads and officers to their sector.
 function applyScopeLock() {
   if (!me) return;
   const kLock = me.role === "kebele_officer";
-  const sLock = me.role === "sector_head";
+  const sLock = me.role === "sector_head" || me.role === "sector_officer";
   if (kLock) setSelectValue("kebele", me.kebele);
   if (sLock) setSelectValue("sector", me.sector);
   $("kebele").disabled = kLock;
@@ -952,7 +953,7 @@ function renderUsers() {
 function syncUserRole() {
   const r = $("uRole").value;
   $("uKebeleWrap").classList.toggle("hidden", r !== "kebele_officer");
-  $("uSectorWrap").classList.toggle("hidden", r !== "sector_head");
+  $("uSectorWrap").classList.toggle("hidden", r !== "sector_head" && r !== "sector_officer");
 }
 $("uRole").addEventListener("change", syncUserRole);
 
@@ -1001,7 +1002,7 @@ $("userForm").addEventListener("submit", async e => {
     name: $("uName").value,
     role,
     kebele: role === "kebele_officer" ? $("uKebele").value : "",
-    sector: role === "sector_head" ? $("uSector").value : ""
+    sector: (role === "sector_head" || role === "sector_officer") ? $("uSector").value : ""
   };
   if ($("uPassword").value) payload.password = $("uPassword").value;
   try {

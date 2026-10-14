@@ -8,6 +8,7 @@ const bcrypt = require("bcryptjs");
 const { Pool } = require("pg");
 require("dotenv").config();
 const citizen = require("./citizen-reports");
+const officerReports = require("./officer-reports");
 
 const app = express();
 app.set("trust proxy", 1);
@@ -249,6 +250,7 @@ async function initDb() {
   `);
 
   await citizen.initTables(pool);
+  await officerReports.initTables(pool);
   await importLegacyJson();
   await seedLists();
 }
@@ -917,6 +919,9 @@ app.get("/api/reports/export/evaluations.csv", requireAuth, wrap(async (req, res
 
 // ---------------- Routes: citizen reports & announcements ----------------
 citizen.mount(app, { pool, wrap, requireAuth, cleanText });
+
+// ---------------- Routes: sector officer reports & head feedback ----------------
+officerReports.mount(app, { pool, wrap, requireAuth, cleanText });
 
 // Unknown /api routes return JSON 404 instead of the HTML page below.
 app.use("/api", (req, res) => {

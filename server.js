@@ -52,6 +52,9 @@ app.use(helmet({
     },
   },
 }));
+// Citizen reports can carry up to 3 photos (base64), so this route gets a bigger limit.
+// It must come BEFORE the general parser below.
+app.use("/api/citizen-reports", express.json({ limit: "2mb" }));
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, "public"), { extensions: ["html"], index: false }));
@@ -582,8 +585,9 @@ app.get("/api/me", requireAuth, (req, res) => {
 
 // ---------------- Routes: Kebele and Sector lists ----------------
 // Anyone signed in can read the lists (for dropdowns). Only the administrator
-// can add, rename, or deactivate. Renaming also updates records that use the
-// old name, so a typo can be fixed in one place.
+// can add, rename, or deactivate. Renaming also updates every place that uses
+// the old name, so a typo can be fixed in one place.
+// cascade entries: [table, column] or [table, column, extraWhere]
 
 function listRoutes(route, table, cascade) {
   app.get(`/api/${route}`, requireAuth, wrap(async (req, res) => {
@@ -630,8 +634,14 @@ function listRoutes(route, table, cascade) {
         [id, newName, active]
       );
       if (newName !== oldName) {
-        for (const [t, col] of cascade) {
-          await client.query(`UPDATE ${t} SET ${col} = $1 WHERE ${col} = $2`, [newName, oldName]);
+        for (const [t, col, where] of cascade) {
+          // Skip tables that do not exist (yet), so a rename never fails because of them.
+          const exists = await client.query("SELECT to_regclass($1) AS t", [t]);
+          if (!exists.rows[0].t) continue;
+          await client.query(
+            `UPDATE ${t} SET ${col} = $1 WHERE ${col} = $2${where ? " AND " + where : ""}`,
+            [newName, oldName]
+          );
         }
       }
       await client.query("COMMIT");
@@ -646,8 +656,15 @@ function listRoutes(route, table, cascade) {
   }));
 }
 
-listRoutes("kebeles", "kebeles", [["records", "kebele"], ["evaluations", "kebele"], ["users", "kebele"]]);
-listRoutes("sectors", "sectors", [["records", "sector"], ["users", "sector"], ["officer_reports", "sector"]]);
+listRoutes("kebeles", "kebeles", [
+  ["records", "kebele"], ["evaluations", "kebele"], ["users", "kebele"],
+  ["citizen_reports", "kebele"], ["announcements", "audience"],
+  ["periodic_reports", "unit_name", "unit_type='kebele'"]
+]);
+listRoutes("sectors", "sectors", [
+  ["records", "sector"], ["users", "sector"], ["officer_reports", "sector"],
+  ["announcements", "audience"], ["periodic_reports", "unit_name", "unit_type='sector'"]
+]);
 
 // ---------------- Routes: users (administrator only) ----------------
 

@@ -57,6 +57,7 @@ async function initTables(pool) {
       created_at TIMESTAMPTZ DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS idx_photos_report ON report_photos (report_id);
+    CREATE INDEX IF NOT EXISTS idx_updates_report ON report_updates (report_id);
     CREATE TABLE IF NOT EXISTS periodic_reports (
       id TEXT PRIMARY KEY,
       unit_type TEXT NOT NULL CHECK (unit_type IN ('kebele','sector')),
@@ -95,13 +96,19 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
       : res.status(403).json({ error: "Staff access required." });
 
   // admin sees all; kebele officer only their kebele; no kebele assigned = nothing.
-  function scope(user, params) {
+  // `col` lets callers qualify the column (e.g. "r.kebele") when the query uses a table alias.
+  function scope(user, params, col = "kebele") {
     if (user.role === "admin") return "TRUE";
     if (!user.kebele) return "FALSE";
     params.push(user.kebele);
-    return `kebele = $${params.length}`;
+    return `${col} = $${params.length}`;
   }
-  const toDate = v => { const t = Date.parse(v); return Number.isNaN(t) ? null : new Date(t).toISOString(); };
+  // Returns an ISO string, or null for empty input. Returns undefined when the value is present but not a valid date.
+  const toDate = v => {
+    if (v === undefined || v === null || v === "") return null;
+    const t = Date.parse(v);
+    return Number.isNaN(t) ? undefined : new Date(t).toISOString();
+  };
   async function sectorExists(name) {
     const total = await pool.query("SELECT COUNT(*)::int n FROM sectors WHERE active = true");
     if (total.rows[0].n === 0) return false; // no sectors set up: nothing to match
@@ -138,7 +145,7 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
     if (!kebele || !(await kebeleExists(kebele))) return res.status(400).json({ error: "Choose a Kebele from the list." });
     if (!CATEGORIES.includes(b.category)) return res.status(400).json({ error: "Choose a valid category." });
     const anonymous = Boolean(b.anonymous);
-    let phone = anonymous ? null : cleanText(b.phone, 20).replace(/\s+/g, "") || null;
+    const phone = anonymous ? null : (cleanText(b.phone, 20).replace(/\s+/g, "") || null);
     if (phone && !/^(?:\+251|0)[79]\d{8}$/.test(phone)) return res.status(400).json({ error: "Phone must look like 09XXXXXXXX." });
 
     // Optional photos: up to 3 JPEGs (the page shrinks them first), checked again here.
@@ -236,12 +243,12 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
               COUNT(*) FILTER (WHERE status NOT IN ('Resolved','Rejected'))::int open,
               COUNT(*) FILTER (WHERE status='Resolved')::int resolved
        FROM citizen_reports WHERE ${w}`, p1)).rows[0];
-    const p2 = [], w2 = scope(req.user, p2);
+    const p2 = [], w2 = scope(req.user, p2, "r.kebele");
     const avg = (await pool.query(
       `SELECT AVG(EXTRACT(EPOCH FROM (u.t - r.created_at)) / 86400) d
        FROM citizen_reports r
        JOIN LATERAL (SELECT MIN(created_at) t FROM report_updates WHERE report_id = r.id AND status='Resolved') u ON u.t IS NOT NULL
-       WHERE r.status='Resolved' AND ${w2.replace(/\bkebele\b/, "r.kebele")}`, p2)).rows[0].d;
+       WHERE r.status='Resolved' AND ${w2}`, p2)).rows[0].d;
     const p3 = [], w3 = scope(req.user, p3);
     const perKebele = (await pool.query(
       `SELECT kebele, COUNT(*)::int received, COUNT(*) FILTER (WHERE status='Resolved')::int resolved
@@ -253,6 +260,7 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
   // Public read: the audiences the visitor follows (sent as "A|B|C") plus all Emergency items.
   app.get("/api/announcements", wrap(async (req, res) => {
     const aud = String(req.query.audiences || WHOLE).split("|").map(s => s.trim().slice(0, 100)).filter(Boolean).slice(0, 30);
+    if (!aud.includes(WHOLE)) aud.push(WHOLE); // everyone always sees Woreda-wide items
     // Following any kebele also shows "All Kebeles" items; following any sector also shows "All Sectors" items.
     const [kebs, secs] = await Promise.all([
       pool.query("SELECT name FROM kebeles WHERE name = ANY($1::text[])", [aud]),
@@ -282,11 +290,17 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
     } else if (![WHOLE, ALL_KEBELES, ALL_SECTORS].includes(audience) && !(await kebeleExists(audience)) && !(await sectorExists(audience))) {
       return res.status(400).json({ error: "Audience must be Whole Woreda, All Kebeles, All Sectors, a Kebele or a Sector from the list." });
     }
+    // Reject bad dates instead of silently publishing now / never expiring.
+    const publishAt = toDate(b.publishAt), expiresAt = toDate(b.expiresAt);
+    if (publishAt === undefined) return res.status(400).json({ error: "Publish date is not valid." });
+    if (expiresAt === undefined) return res.status(400).json({ error: "Expiry date is not valid." });
+    if (expiresAt && Date.parse(expiresAt) <= (publishAt ? Date.parse(publishAt) : Date.now()))
+      return res.status(400).json({ error: "Expiry must be after the publish time." });
     const { rows } = await pool.query(
       `INSERT INTO announcements (title_am,title_en,body_am,body_en,type,audience,publish_at,expires_at,created_by)
        VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7::timestamptz, now()),$8::timestamptz,$9) RETURNING id`,
       [cleanText(b.titleAm, 150), titleEn, cleanText(b.bodyAm, 3000), cleanText(b.bodyEn, 3000), type, audience,
-       b.publishAt ? toDate(b.publishAt) : null, b.expiresAt ? toDate(b.expiresAt) : null, req.user.email]);
+       publishAt, expiresAt, req.user.email]);
     res.status(201).json({ id: rows[0].id });
   }));
 
@@ -300,6 +314,7 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
     if (!rowCount) return res.status(404).json({ error: "Announcement not found." });
     res.json({ ok: true });
   }));
+
   // ---- staff: view a report photo (same kebele scope as the inbox) ----
   app.get("/api/citizen-report-photos/:id", requireAuth, requireStaff, wrap(async (req, res) => {
     const id = Number(req.params.id);
@@ -381,12 +396,14 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
     const b = req.body || {};
     const summary = cleanText(b.summary, 4000);
     if (!summary) return res.status(400).json({ error: "Summary is required." });
+    // The status check is repeated in the UPDATE so a review that lands between the two queries is not overwritten.
     const { rows } = await pool.query(
       `UPDATE periodic_reports SET summary=$2, achievements=$3, challenges=$4, next_plan=$5,
          status='Submitted', submitted_by=$6, submitted_name=$7, updated_at=now()
-       WHERE id=$1 RETURNING ${PR_COLS}`,
+       WHERE id=$1 AND status <> 'Reviewed' RETURNING ${PR_COLS}`,
       [req.params.id, summary, cleanText(b.achievements, 4000), cleanText(b.challenges, 4000),
        cleanText(b.nextPlan, 4000), req.user.email, req.user.name || ""]);
+    if (!rows.length) return res.status(409).json({ error: "This report was already approved and cannot be edited." });
     res.json({ report: rows[0] });
   }));
 

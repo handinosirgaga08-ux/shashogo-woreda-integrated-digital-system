@@ -232,6 +232,9 @@ async function initDb() {
     );
   `);
 
+  // NEW: job role column on records (Expert, Team Leader, ...). Safe to run every start.
+  await pool.query(`ALTER TABLE records ADD COLUMN IF NOT EXISTS job_role TEXT DEFAULT ''`);
+
   // Existing databases were created with only three allowed roles. Widen the
   // rule once so the new sector_officer role can be saved. Safe to run every start.
   await pool.query(`
@@ -331,7 +334,7 @@ async function importLegacyJson() {
 const REC_COLS = `id, name, category, kebele, phone, status, notes, id_number,
   to_char(birth_date,'YYYY-MM-DD') AS birth_date, marital_status,
   to_char(hire_date,'YYYY-MM-DD') AS hire_date, sector, work_line, department,
-  profession, experience_years, created_at, updated_at`;
+  profession, job_role, experience_years, created_at, updated_at`;
 
 function rowToRecord(r) {
   return {
@@ -350,6 +353,7 @@ function rowToRecord(r) {
     workLine: r.work_line,
     department: r.department,
     profession: r.profession,
+    jobRole: r.job_role,
     experienceYears: r.experience_years,
     createdAt: r.created_at,
     updatedAt: r.updated_at
@@ -380,7 +384,8 @@ function validateRecord(body) {
     sector: cleanText(body.sector, 100),
     workLine: cleanText(body.workLine, 100),
     department: cleanText(body.department, 100),
-    profession: cleanText(body.profession, 100)
+    profession: cleanText(body.profession, 100),
+    jobRole: cleanText(body.jobRole, 100)
   };
 
   if (!record.name) return { error: "Name is required." };
@@ -433,12 +438,13 @@ async function applyScopeAndLists(user, record) {
   return null;
 }
 
-// Order matches the $2..$16 placeholders below ($1 is the id).
+// Order matches the $2..$17 placeholders below ($1 is the id).
 function recordParams(r) {
   return [
     r.name, r.category, r.kebele, r.phone, r.status, r.notes,
     r.idNumber, r.birthDate, r.maritalStatus, r.hireDate,
-    r.sector, r.workLine, r.department, r.profession, r.experienceYears
+    r.sector, r.workLine, r.department, r.profession, r.experienceYears,
+    r.jobRole
   ];
 }
 
@@ -728,7 +734,7 @@ app.get("/api/records", requireAuth, wrap(async (req, res) => {
   const { rows } = await pool.query(
     `SELECT ${REC_COLS} FROM records
      WHERE ($1::text = '' OR concat_ws(' ', name, category, kebele, phone, status, notes,
-            id_number, marital_status, sector, work_line, department, profession)
+            id_number, marital_status, sector, work_line, department, profession, job_role)
             ILIKE '%' || $1 || '%')
        AND ${scope}
      ORDER BY updated_at DESC`,
@@ -746,8 +752,8 @@ app.post("/api/records", requireAuth, wrap(async (req, res) => {
   const { rows } = await pool.query(
     `INSERT INTO records
        (id, name, category, kebele, phone, status, notes, id_number, birth_date,
-        marital_status, hire_date, sector, work_line, department, profession, experience_years)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+        marital_status, hire_date, sector, work_line, department, profession, experience_years, job_role)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
      RETURNING ${REC_COLS}`,
     [crypto.randomUUID(), ...recordParams(result.record)]
   );
@@ -767,7 +773,7 @@ app.put("/api/records/:id", requireAuth, wrap(async (req, res) => {
        name=$2, category=$3, kebele=$4, phone=$5, status=$6, notes=$7,
        id_number=$8, birth_date=$9, marital_status=$10, hire_date=$11,
        sector=$12, work_line=$13, department=$14, profession=$15,
-       experience_years=$16, updated_at=now()
+       experience_years=$16, job_role=$17, updated_at=now()
      WHERE id=$1 AND ${scope}
      RETURNING ${REC_COLS}`,
     params
@@ -890,6 +896,7 @@ app.get("/api/reports/export/records.csv", requireAuth, wrap(async (req, res) =>
     { key: "workLine", label: "Work Line" },
     { key: "department", label: "Department" },
     { key: "profession", label: "Profession" },
+    { key: "jobRole", label: "Job Role" },
     { key: "experienceYears", label: "Experience (years)" },
     { key: "notes", label: "Notes" },
     { key: "createdAt", label: "Created At" },

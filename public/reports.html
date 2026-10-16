@@ -95,7 +95,7 @@ var WHOLE="Whole Woreda";
 var CATS=["Service complaint","Infrastructure","Security","Health","Agriculture","Suggestion","Other"];
 var STATUSES=["Submitted","Received","In progress","Resolved","Rejected"];
 var TYPES=["General","Emergency","Event","Service notice"];
-var KEBELES=[],USER=null,following={};
+var KEBELES=[],SECTORS=[],USER=null,following={};
 
 function $(i){return document.getElementById(i)}
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
@@ -168,7 +168,7 @@ function loadFeed(markSeen){
   var unread=d.announcements.filter(function(a){return a.id>seen}).length;
   if(markSeen){store("swids_seen",Math.max(seen,max));$("ub").classList.add("hide")}else{$("ub").textContent=unread;$("ub").classList.toggle("hide",!unread)}
  }).catch(function(){})}
-function drawFollows(){$("follows").innerHTML=[WHOLE].concat(KEBELES).map(function(k){return'<button class="'+(following[k]?"on":"")+'" data-k="'+esc(k)+'">'+(following[k]?"✓ ":"+ ")+esc(k)+"</button>"}).join("")}
+function drawFollows(){$("follows").innerHTML=[WHOLE].concat(KEBELES,SECTORS).map(function(k){return'<button class="'+(following[k]?"on":"")+'" data-k="'+esc(k)+'">'+(following[k]?"✓ ":"+ ")+esc(k)+"</button>"}).join("")}
 $("follows").addEventListener("click",function(e){var k=e.target.dataset&&e.target.dataset.k;if(!k)return;following[k]=!following[k];store("swids_follows",audiences());drawFollows();loadFeed(false)});
 function iso(v){return v?new Date(v).toISOString():""}
 function postAnn(){api("POST","/api/announcements",{titleEn:$("a-ten").value,titleAm:$("a-tam").value,bodyEn:$("a-ben").value,bodyAm:$("a-bam").value,
@@ -179,12 +179,12 @@ function delAnn(id){if(!confirm("Delete this announcement?"))return;api("DELETE"
 /* start: find out who is signed in (staff) or treat as a citizen */
 opts("f-cat",CATS);opts("a-type",TYPES);opts("fl-st",["All"].concat(STATUSES));
 var f=store("swids_follows");(f&&f.length?f:[WHOLE]).forEach(function(k){following[k]=true});
-Promise.all([api("GET","/api/public/kebeles").catch(function(){return{kebeles:[]}}),api("GET","/api/me").catch(function(){return null})]).then(function(r){
- KEBELES=r[0].kebeles;USER=r[1]&&r[1].user||null;
+Promise.all([api("GET","/api/public/kebeles").catch(function(){return{kebeles:[]}}),api("GET","/api/me").catch(function(){return null}),api("GET","/api/public/sectors").catch(function(){return{sectors:[]}})]).then(function(r){
+ KEBELES=r[0].kebeles;SECTORS=r[2].sectors||[];USER=r[1]&&r[1].user||null;
  opts("f-keb",KEBELES);opts("fl-keb",["All"].concat(KEBELES));drawFollows();
  if(isStaff()){
   $("track-card").classList.add("hide");$("mine-card").classList.add("hide");$("submit-card").classList.add("hide");$("staff-add").classList.remove("hide");$("staff-rep").classList.remove("hide");if(USER.role!=="admin"&&USER.kebele)opts("f-keb",[USER.kebele]);$("post-card").classList.remove("hide");
-  opts("a-aud",USER.role==="admin"?[WHOLE].concat(KEBELES):[USER.kebele||""]);
+  opts("a-aud",USER.role==="admin"?[WHOLE,"All Kebeles","All Sectors"].concat(KEBELES,SECTORS):[USER.kebele||""]);
   if(USER.role!=="admin")$("kfilter").classList.add("hide");
   loadInbox();
  }else loadMine();

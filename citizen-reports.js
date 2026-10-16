@@ -6,6 +6,8 @@ const STATUSES = ["Submitted", "Received", "In progress", "Resolved", "Rejected"
 const CATEGORIES = ["Service complaint", "Infrastructure", "Security", "Health", "Agriculture", "Suggestion", "Other"];
 const TYPES = ["General", "Emergency", "Event", "Service notice"];
 const WHOLE = "Whole Woreda";
+const ALL_KEBELES = "All Kebeles";
+const ALL_SECTORS = "All Sectors";
 
 async function initTables(pool) {
   await pool.query(`
@@ -100,6 +102,11 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
     return `kebele = $${params.length}`;
   }
   const toDate = v => { const t = Date.parse(v); return Number.isNaN(t) ? null : new Date(t).toISOString(); };
+  async function sectorExists(name) {
+    const total = await pool.query("SELECT COUNT(*)::int n FROM sectors WHERE active = true");
+    if (total.rows[0].n === 0) return false; // no sectors set up: nothing to match
+    return (await pool.query("SELECT 1 FROM sectors WHERE name=$1 AND active=true", [name])).rowCount > 0;
+  }
   async function kebeleExists(name) {
     const total = await pool.query("SELECT COUNT(*)::int n FROM kebeles WHERE active = true");
     if (total.rows[0].n === 0) return true; // list not set up yet
@@ -115,6 +122,12 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
   app.get("/api/public/kebeles", wrap(async (req, res) => {
     const { rows } = await pool.query("SELECT name FROM kebeles WHERE active = true ORDER BY name");
     res.json({ kebeles: rows.map(r => r.name) });
+  }));
+
+  // ---- public: sector list for announcement audiences ----
+  app.get("/api/public/sectors", wrap(async (req, res) => {
+    const { rows } = await pool.query("SELECT name FROM sectors WHERE active = true ORDER BY name");
+    res.json({ sectors: rows.map(r => r.name) });
   }));
 
   // ---- public: submit a report (no login) ----
@@ -240,6 +253,13 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
   // Public read: the audiences the visitor follows (sent as "A|B|C") plus all Emergency items.
   app.get("/api/announcements", wrap(async (req, res) => {
     const aud = String(req.query.audiences || WHOLE).split("|").map(s => s.trim().slice(0, 100)).filter(Boolean).slice(0, 30);
+    // Following any kebele also shows "All Kebeles" items; following any sector also shows "All Sectors" items.
+    const [kebs, secs] = await Promise.all([
+      pool.query("SELECT name FROM kebeles WHERE name = ANY($1::text[])", [aud]),
+      pool.query("SELECT name FROM sectors WHERE name = ANY($1::text[])", [aud])
+    ]);
+    if (kebs.rowCount) aud.push(ALL_KEBELES);
+    if (secs.rowCount) aud.push(ALL_SECTORS);
     const { rows } = await pool.query(
       `SELECT id, title_am, title_en, body_am, body_en, type, audience, publish_at, expires_at
        FROM announcements
@@ -259,8 +279,8 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
     if (req.user.role === "kebele_officer") {
       if (!req.user.kebele) return res.status(400).json({ error: "Your account has no kebele assigned." });
       if (audience !== req.user.kebele) return res.status(403).json({ error: "You can post only to your own kebele." });
-    } else if (audience !== WHOLE && !(await kebeleExists(audience))) {
-      return res.status(400).json({ error: "Audience must be Whole Woreda or a Kebele from the list." });
+    } else if (![WHOLE, ALL_KEBELES, ALL_SECTORS].includes(audience) && !(await kebeleExists(audience)) && !(await sectorExists(audience))) {
+      return res.status(400).json({ error: "Audience must be Whole Woreda, All Kebeles, All Sectors, a Kebele or a Sector from the list." });
     }
     const { rows } = await pool.query(
       `INSERT INTO announcements (title_am,title_en,body_am,body_en,type,audience,publish_at,expires_at,created_by)

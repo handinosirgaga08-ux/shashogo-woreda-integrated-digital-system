@@ -1,193 +1,435 @@
-<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Reports & Announcements – Shashogo Woreda</title>
-<style>
-:root{--bg:#f1f3f6;--card:#fff;--ink:#16202e;--mute:#667085;--line:#e1e5ec;--blue:#1565a8;--chip:#e9edf3;--ok:#15803d;--red:#b91c1c}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,"Noto Sans Ethiopic",sans-serif}
-header{background:#0b1224;color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
-header a{color:#cfe0f5;font-size:13px;text-decoration:none}header b{font-size:15px}
-main{padding:12px;max-width:720px;margin:auto}
-.tabs{display:flex;gap:6px;margin-bottom:12px}
-.tabs button{flex:1;border:0;background:var(--chip);padding:9px;border-radius:8px;font-weight:600}
-.tabs button.on{background:var(--blue);color:#fff}
-.badge{background:var(--red);color:#fff;border-radius:10px;font-size:11px;padding:0 6px;margin-left:4px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
-h2{margin:0 0 10px;font-size:16px}
-label{display:block;font-size:12px;color:var(--mute);margin:8px 0 3px}
-input,select,textarea{width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.btn{background:var(--blue);color:#fff;border:0;border-radius:8px;padding:9px 14px;font-weight:600;margin-top:12px}
-.btn.alt{background:var(--chip);color:var(--ink)}
-.item{border-top:1px solid var(--line);padding:10px 0}.item:first-child{border-top:0}
-.top{display:flex;justify-content:space-between;gap:8px}
-.meta{color:var(--mute);font-size:12px}
-.pill{font-size:11px;font-weight:700;border-radius:20px;padding:2px 9px;background:var(--chip);white-space:nowrap}
-.urgent{color:var(--red);font-weight:700;font-size:11px}
-.steps{display:flex;gap:4px;margin:8px 0 2px}.steps i{flex:1;height:5px;border-radius:3px;background:var(--line)}.steps i.f{background:var(--blue)}
-.ann.Emergency{border-left:4px solid var(--red)}.ann.Event{border-left:4px solid var(--ok)}
-.ann.unread h3::before{content:"●";color:var(--blue);margin-right:6px;font-size:10px}
-.ann h3{margin:0 0 3px;font-size:15px}
-.chips{display:flex;flex-wrap:wrap;gap:6px}
-.chips button{border:1px solid var(--line);background:#fff;border-radius:20px;padding:5px 11px;font-size:12px}
-.chips button.on{background:var(--blue);color:#fff;border-color:var(--blue)}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
-.stats div{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px;text-align:center}.stats b{display:block;font-size:18px}
-.hide{display:none}
-.toast{position:fixed;left:12px;right:12px;bottom:14px;background:#0b1224;color:#fff;padding:12px;border-radius:10px;text-align:center}
-</style></head>
-<body>
-<header><b>Reports & Announcements</b><span><a href="/periodic" style="margin-right:14px">Monthly / Quarterly</a><a href="/">← Home</a></span></header>
-<main>
-<div class="tabs">
-  <button id="t-rep" class="on" onclick="setTab('rep')">Reports</button>
-  <button id="t-ann" onclick="setTab('ann')">Announcements<span class="badge hide" id="ub"></span></button>
-</div>
+// Citizen reports + announcements for SWIDS. Plugs into the existing server.js.
+const crypto = require("crypto");
+const rateLimit = require("express-rate-limit");
 
-<section id="rep">
- <div id="staff-add" class="hide"><button class="btn" style="margin:0 0 12px;width:100%" onclick="toggleAdd()">+ Add report for a citizen</button></div>
- <div id="cit-rep">
-  <div class="card" id="submit-card"><h2>Send a report</h2>
-   <div class="row"><div><label>Category</label><select id="f-cat"></select></div>
-   <div><label>Kebele</label><select id="f-keb"></select></div></div>
-   <label>Title</label><input id="f-title" maxlength="150">
-   <label>Location detail (optional)</label><input id="f-loc" maxlength="200">
-   <label>Description</label><textarea id="f-desc" rows="3"></textarea>
-   <div class="row"><div><label>Phone (optional)</label><input id="f-ph" placeholder="09XXXXXXXX"></div>
-   <div><label>Priority</label><select id="f-pr"><option>Normal</option><option>Urgent</option></select></div></div>
-   <label>Photos (optional, up to 3)</label><input type="file" id="f-photo" accept="image/*" multiple>
-   <div id="photo-prev"></div>
-   <label><input type="checkbox" id="f-anon" style="width:auto"> Send anonymously (phone not saved)</label>
-   <button class="btn" onclick="submitReport()">Submit report</button></div>
-  <div class="card" id="track-card"><h2>Track a report</h2>
-   <div style="display:flex;gap:8px"><input id="trk" placeholder="SW-2026-XXXXXX">
-   <button class="btn alt" style="margin:0" onclick="track()">Check</button></div><div id="trk-out"></div></div>
-  <div class="card" id="mine-card"><h2>Reports sent from this device</h2><div id="mine" class="meta">None yet.</div></div>
- </div>
- <div id="staff-rep" class="hide">
-  <div class="stats"><div><b id="st-t">0</b><span class="meta">Total</span></div><div><b id="st-o">0</b><span class="meta">Open</span></div>
-  <div><b id="st-r">0</b><span class="meta">Resolved</span></div><div><b id="st-a">–</b><span class="meta">Avg days</span></div></div>
-  <div class="card"><h2>Inbox</h2>
-   <div class="row"><div id="kfilter"><label>Kebele</label><select id="fl-keb" onchange="loadInbox()"></select></div>
-   <div><label>Status</label><select id="fl-st" onchange="loadInbox()"></select></div></div>
-   <div id="inbox"></div></div>
- </div>
-</section>
+const STATUSES = ["Submitted", "Received", "In progress", "Resolved", "Rejected"];
+const CATEGORIES = ["Service complaint", "Infrastructure", "Security", "Health", "Agriculture", "Suggestion", "Other"];
+const TYPES = ["General", "Emergency", "Event", "Service notice"];
+const WHOLE = "Whole Woreda";
+const ALL_KEBELES = "All Kebeles";
+const ALL_SECTORS = "All Sectors";
 
-<section id="ann" class="hide">
- <div class="card"><h2>Follow</h2><div class="chips" id="follows"></div>
-  <div class="meta" style="margin-top:6px">Emergency announcements are always shown.</div></div>
- <div class="card hide" id="post-card"><h2>Post announcement</h2>
-  <label>Title (English)</label><input id="a-ten" maxlength="150"><label>Title (Amharic)</label><input id="a-tam" maxlength="150">
-  <label>Message (English)</label><textarea id="a-ben" rows="2"></textarea>
-  <label>Message (Amharic)</label><textarea id="a-bam" rows="2"></textarea>
-  <div class="row"><div><label>Type</label><select id="a-type"></select></div><div><label>Audience</label><select id="a-aud"></select></div></div>
-  <div class="row"><div><label>Publish at (optional)</label><input id="a-pub" type="datetime-local"></div>
-  <div><label>Expires (optional)</label><input id="a-exp" type="datetime-local"></div></div>
-  <button class="btn" onclick="postAnn()">Publish</button></div>
- <div id="feed"></div>
-</section>
-<div class="toast hide" id="toast"></div>
-</main>
+async function initTables(pool) {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS citizen_reports (
+      id TEXT PRIMARY KEY,
+      tracking_no TEXT NOT NULL UNIQUE,
+      category TEXT NOT NULL,
+      kebele TEXT NOT NULL,
+      location_detail TEXT DEFAULT '',
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      phone TEXT,
+      priority TEXT NOT NULL DEFAULT 'Normal',
+      status TEXT NOT NULL DEFAULT 'Submitted',
+      assigned_dept TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT now(),
+      updated_at TIMESTAMPTZ DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS report_updates (
+      id SERIAL PRIMARY KEY,
+      report_id TEXT NOT NULL REFERENCES citizen_reports(id) ON DELETE CASCADE,
+      status TEXT NOT NULL,
+      note TEXT DEFAULT '',
+      is_public BOOLEAN NOT NULL DEFAULT true,
+      by_email TEXT,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS announcements (
+      id SERIAL PRIMARY KEY,
+      title_am TEXT DEFAULT '',
+      title_en TEXT NOT NULL,
+      body_am TEXT DEFAULT '',
+      body_en TEXT DEFAULT '',
+      type TEXT NOT NULL DEFAULT 'General',
+      audience TEXT NOT NULL DEFAULT 'Whole Woreda',
+      publish_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      expires_at TIMESTAMPTZ,
+      created_by TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_cr_kebele_status ON citizen_reports (kebele, status);
+    CREATE INDEX IF NOT EXISTS idx_ann_pub ON announcements (publish_at);
+    CREATE TABLE IF NOT EXISTS report_photos (
+      id SERIAL PRIMARY KEY,
+      report_id TEXT NOT NULL REFERENCES citizen_reports(id) ON DELETE CASCADE,
+      mime TEXT NOT NULL DEFAULT 'image/jpeg',
+      data BYTEA NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_photos_report ON report_photos (report_id);
+    CREATE TABLE IF NOT EXISTS periodic_reports (
+      id TEXT PRIMARY KEY,
+      unit_type TEXT NOT NULL CHECK (unit_type IN ('kebele','sector')),
+      unit_name TEXT NOT NULL,
+      period_type TEXT NOT NULL CHECK (period_type IN ('Monthly','Quarterly')),
+      period_label TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      achievements TEXT DEFAULT '',
+      challenges TEXT DEFAULT '',
+      next_plan TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'Submitted',
+      feedback TEXT DEFAULT '',
+      submitted_by TEXT NOT NULL,
+      submitted_name TEXT DEFAULT '',
+      reviewed_by TEXT,
+      reviewed_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT now(),
+      updated_at TIMESTAMPTZ DEFAULT now(),
+      UNIQUE (unit_type, unit_name, period_type, period_label)
+    );
+  `);
+}
 
-<script>
-var WHOLE="Whole Woreda";
-var CATS=["Service complaint","Infrastructure","Security","Health","Agriculture","Suggestion","Other"];
-var STATUSES=["Submitted","Received","In progress","Resolved","Rejected"];
-var TYPES=["General","Emergency","Event","Service notice"];
-var KEBELES=[],USER=null,following={};
+// Random, hard-to-guess tracking number (so strangers cannot browse other people's reports).
+function newTrackingNo() {
+  const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for (let i = 0; i < 6; i++) s += A[crypto.randomInt(A.length)];
+  return `SW-${new Date().getFullYear()}-${s}`;
+}
 
-function $(i){return document.getElementById(i)}
-function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
-function when(d){try{return new Date(d).toLocaleString()}catch(e){return d}}
-function toast(m){var t=$("toast");t.textContent=m;t.classList.remove("hide");setTimeout(function(){t.classList.add("hide")},3200)}
-function opts(id,l){$(id).innerHTML=l.map(function(k){return"<option>"+esc(k)+"</option>"}).join("")}
-function store(k,v){try{if(v===undefined)return JSON.parse(localStorage.getItem(k));localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}}
-function api(method,url,body){
- return fetch(url,{method:method,headers:{"Content-Type":"application/json"},credentials:"same-origin",body:body?JSON.stringify(body):undefined})
- .then(function(r){return r.json().catch(function(){return{}}).then(function(d){if(!r.ok)throw new Error(d.error||"Error "+r.status);return d})})}
-function fail(e){toast(e.message)}
-function isStaff(){return USER&&(USER.role==="admin"||USER.role==="kebele_officer")}
-function stepBar(s){var i=STATUSES.indexOf(s);return'<div class="steps">'+STATUSES.slice(0,4).map(function(_,k){return'<i class="'+(k<=i?"f":"")+'"></i>'}).join("")+"</div>"}
-function repHTML(r,extra){var no=r.tracking_no;
- return'<div class="item"><div class="top"><div><b>'+esc(r.title)+'</b><div class="meta">'+esc(no)+" · "+esc(r.category)+" · "+esc(r.kebele)+'</div></div>'+
- '<div style="text-align:right"><span class="pill">'+esc(r.status)+"</span>"+(r.priority==="Urgent"?'<div class="urgent">URGENT</div>':"")+"</div></div>"+stepBar(r.status)+
- (r.updates||[]).filter(function(u){return u.note}).map(function(u){return'<div class="meta">'+esc(when(u.created_at))+": "+esc(u.note)+"</div>"}).join("")+(extra||"")+"</div>"}
+function mount(app, { pool, wrap, requireAuth, cleanText }) {
+  const requireStaff = (req, res, next) =>
+    ["admin", "kebele_officer"].includes(req.user.role)
+      ? next()
+      : res.status(403).json({ error: "Staff access required." });
 
-function setTab(t){["rep","ann"].forEach(function(x){$(x).classList.toggle("hide",x!==t);$("t-"+x).classList.toggle("on",x===t)});if(t==="ann")loadFeed(true)}
+  // admin sees all; kebele officer only their kebele; no kebele assigned = nothing.
+  function scope(user, params) {
+    if (user.role === "admin") return "TRUE";
+    if (!user.kebele) return "FALSE";
+    params.push(user.kebele);
+    return `kebele = $${params.length}`;
+  }
+  const toDate = v => { const t = Date.parse(v); return Number.isNaN(t) ? null : new Date(t).toISOString(); };
+  async function sectorExists(name) {
+    const total = await pool.query("SELECT COUNT(*)::int n FROM sectors WHERE active = true");
+    if (total.rows[0].n === 0) return false; // no sectors set up: nothing to match
+    return (await pool.query("SELECT 1 FROM sectors WHERE name=$1 AND active=true", [name])).rowCount > 0;
+  }
+  async function kebeleExists(name) {
+    const total = await pool.query("SELECT COUNT(*)::int n FROM kebeles WHERE active = true");
+    if (total.rows[0].n === 0) return true; // list not set up yet
+    return (await pool.query("SELECT 1 FROM kebeles WHERE name=$1 AND active=true", [name])).rowCount > 0;
+  }
 
-/* photos: shrink in the browser, then send with the report */
-var PHOTOS=[];
-function drawPhotos(){$("photo-prev").innerHTML=PHOTOS.map(function(p,i){return'<span style="position:relative;display:inline-block;margin:6px 6px 0 0"><img src="'+p+'" style="width:72px;height:72px;object-fit:cover;border-radius:8px"><button type="button" onclick="rmPhoto('+i+')" style="position:absolute;top:-6px;right:-6px;border:0;border-radius:50%;width:22px;height:22px;background:#b91c1c;color:#fff;padding:0">×</button></span>'}).join("")}
-function rmPhoto(i){PHOTOS.splice(i,1);drawPhotos()}
-function shrink(file){return new Promise(function(res,rej){var fr=new FileReader();fr.onerror=rej;fr.onload=function(){var img=new Image();img.onerror=rej;img.onload=function(){
- var dim=1024,q=0.7,out;
- for(var n=0;n<8;n++){var sc=Math.min(1,dim/Math.max(img.width,img.height)),c=document.createElement("canvas");c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);
-  var x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(img,0,0,c.width,c.height);
-  out=c.toDataURL("image/jpeg",q);if(out.length<=270000)break;if(q>0.45)q-=0.1;else dim=Math.round(dim*0.75)}
- res(out)};img.src=fr.result};fr.readAsDataURL(file)})}
-$("f-photo").addEventListener("change",function(e){var files=Array.prototype.slice.call(e.target.files);e.target.value="";
- var room=3-PHOTOS.length;if(room<=0){toast("Maximum 3 photos");return}
- files.slice(0,room).forEach(function(f){shrink(f).then(function(d){PHOTOS.push(d);drawPhotos()}).catch(function(){toast("Could not read that photo")})})});
-function photosHTML(r){return r.photo_ids&&r.photo_ids.length?'<div style="margin-top:6px">'+r.photo_ids.map(function(pid){return'<a href="/api/citizen-report-photos/'+pid+'" target="_blank"><img src="/api/citizen-report-photos/'+pid+'" alt="photo" style="width:72px;height:72px;object-fit:cover;border-radius:8px;margin-right:6px"></a>'}).join("")+"</div>":""}
+  const submitLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false,
+    message: { error: "Too many reports from this connection. Try again later." } });
+  const trackLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 40, standardHeaders: true, legacyHeaders: false,
+    message: { error: "Too many lookups. Try again later." } });
 
-/* reports */
-function submitReport(){
- api("POST","/api/citizen-reports",{category:$("f-cat").value,kebele:$("f-keb").value,title:$("f-title").value,locationDetail:$("f-loc").value,
-  description:$("f-desc").value,phone:$("f-ph").value,priority:$("f-pr").value,anonymous:$("f-anon").checked,photos:PHOTOS})
- .then(function(d){PHOTOS=[];drawPhotos();if(isStaff()){$("submit-card").classList.add("hide");["f-title","f-loc","f-desc","f-ph"].forEach(function(i){$(i).value=""});loadInbox();toast("Report added. Give the citizen this tracking number: "+d.trackingNo);return}var m=store("swids_mine")||[];m.unshift(d.trackingNo);store("swids_mine",m.slice(0,20));
-  ["f-title","f-loc","f-desc"].forEach(function(i){$(i).value=""});$("trk").value=d.trackingNo;track();loadMine();
-  toast("Submitted. Save your tracking number: "+d.trackingNo)}).catch(fail)}
-function toggleAdd(){$("submit-card").classList.toggle("hide")}
-function track(){var v=$("trk").value.trim();if(!v)return;
- api("GET","/api/citizen-reports/track/"+encodeURIComponent(v)).then(function(d){$("trk-out").innerHTML=repHTML(d.report)})
- .catch(function(e){$("trk-out").innerHTML='<div class="meta" style="margin-top:8px">'+esc(e.message)+"</div>"})}
-function loadMine(){var m=store("swids_mine")||[];if(!m.length)return;$("mine").innerHTML="";
- m.forEach(function(no){api("GET","/api/citizen-reports/track/"+encodeURIComponent(no)).then(function(d){$("mine").insertAdjacentHTML("beforeend",repHTML(d.report))}).catch(function(){})})}
+  // ---- public: kebele list for dropdowns ----
+  app.get("/api/public/kebeles", wrap(async (req, res) => {
+    const { rows } = await pool.query("SELECT name FROM kebeles WHERE active = true ORDER BY name");
+    res.json({ kebeles: rows.map(r => r.name) });
+  }));
 
-function loadInbox(){
- var q="?kebele="+encodeURIComponent($("fl-keb").value)+"&status="+encodeURIComponent($("fl-st").value);
- api("GET","/api/citizen-reports"+q).then(function(d){
-  $("inbox").innerHTML=d.reports.map(function(r){
-   var sel='<select onchange="setStatus(\''+r.id+'\',this.value)" style="margin-top:8px">'+STATUSES.map(function(o){return"<option"+(o===r.status?" selected":"")+">"+o+"</option>"}).join("")+"</select>";
-   return repHTML(r,'<div class="meta">'+esc(r.description)+(r.location_detail?" · 📍 "+esc(r.location_detail):"")+(r.phone?" · 📞 "+esc(r.phone):"")+(r.assigned_dept?" · Dept: "+esc(r.assigned_dept):"")+"</div>"+photosHTML(r)+sel)}).join("")||'<div class="meta">Nothing here.</div>'}).catch(fail);
- api("GET","/api/citizen-reports-stats").then(function(s){$("st-t").textContent=s.total;$("st-o").textContent=s.open;$("st-r").textContent=s.resolved;$("st-a").textContent=s.avgResolutionDays==null?"–":s.avgResolutionDays}).catch(function(){})}
-function setStatus(id,status){
- var note=prompt(status==="Rejected"?"Reason (required):":"Public reply to the citizen (optional):");if(note===null){loadInbox();return}
- api("PATCH","/api/citizen-reports/"+id,{status:status,note:note}).then(loadInbox).catch(function(e){fail(e);loadInbox()})}
+  // ---- public: sector list for announcement audiences ----
+  app.get("/api/public/sectors", wrap(async (req, res) => {
+    const { rows } = await pool.query("SELECT name FROM sectors WHERE active = true ORDER BY name");
+    res.json({ sectors: rows.map(r => r.name) });
+  }));
 
-/* announcements */
-function audiences(){return Object.keys(following).filter(function(k){return following[k]})}
-function loadFeed(markSeen){
- api("GET","/api/announcements?audiences="+encodeURIComponent(audiences().join("|"))).then(function(d){
-  var seen=store("swids_seen")||0,max=0;
-  $("feed").innerHTML=d.announcements.map(function(a){max=Math.max(max,a.id);
-   var del=isStaff()&&(USER.role==="admin"||a.audience===USER.kebele)?' <button class="btn alt" style="margin:6px 0 0;padding:4px 10px" onclick="delAnn('+a.id+')">Delete</button>':"";
-   return'<div class="card ann '+esc(a.type)+(a.id>seen?" unread":"")+'"><h3>'+esc(a.title_en)+(a.title_am?" · "+esc(a.title_am):"")+'</h3><div class="meta">'+esc(a.type)+" · "+esc(a.audience)+" · "+esc(when(a.publish_at))+
-   '</div><p style="margin:6px 0 0">'+esc(a.body_en)+"</p>"+(a.body_am?'<p style="margin:4px 0 0">'+esc(a.body_am)+"</p>":"")+del+"</div>"}).join("")||'<div class="meta">No announcements yet.</div>';
-  var unread=d.announcements.filter(function(a){return a.id>seen}).length;
-  if(markSeen){store("swids_seen",Math.max(seen,max));$("ub").classList.add("hide")}else{$("ub").textContent=unread;$("ub").classList.toggle("hide",!unread)}
- }).catch(function(){})}
-function drawFollows(){$("follows").innerHTML=[WHOLE].concat(KEBELES).map(function(k){return'<button class="'+(following[k]?"on":"")+'" data-k="'+esc(k)+'">'+(following[k]?"✓ ":"+ ")+esc(k)+"</button>"}).join("")}
-$("follows").addEventListener("click",function(e){var k=e.target.dataset&&e.target.dataset.k;if(!k)return;following[k]=!following[k];store("swids_follows",audiences());drawFollows();loadFeed(false)});
-function iso(v){return v?new Date(v).toISOString():""}
-function postAnn(){api("POST","/api/announcements",{titleEn:$("a-ten").value,titleAm:$("a-tam").value,bodyEn:$("a-ben").value,bodyAm:$("a-bam").value,
- type:$("a-type").value,audience:$("a-aud").value,publishAt:iso($("a-pub").value),expiresAt:iso($("a-exp").value)})
- .then(function(){["a-ten","a-tam","a-ben","a-bam"].forEach(function(i){$(i).value=""});toast("Published");loadFeed(false)}).catch(fail)}
-function delAnn(id){if(!confirm("Delete this announcement?"))return;api("DELETE","/api/announcements/"+id).then(function(){loadFeed(false)}).catch(fail)}
+  // ---- public: submit a report (no login) ----
+  app.post("/api/citizen-reports", submitLimiter, wrap(async (req, res) => {
+    const b = req.body || {};
+    const title = cleanText(b.title, 150), kebele = cleanText(b.kebele, 100);
+    if (!title) return res.status(400).json({ error: "Title is required." });
+    if (!kebele || !(await kebeleExists(kebele))) return res.status(400).json({ error: "Choose a Kebele from the list." });
+    if (!CATEGORIES.includes(b.category)) return res.status(400).json({ error: "Choose a valid category." });
+    const anonymous = Boolean(b.anonymous);
+    let phone = anonymous ? null : cleanText(b.phone, 20).replace(/\s+/g, "") || null;
+    if (phone && !/^(?:\+251|0)[79]\d{8}$/.test(phone)) return res.status(400).json({ error: "Phone must look like 09XXXXXXXX." });
 
-/* start: find out who is signed in (staff) or treat as a citizen */
-opts("f-cat",CATS);opts("a-type",TYPES);opts("fl-st",["All"].concat(STATUSES));
-var f=store("swids_follows");(f&&f.length?f:[WHOLE]).forEach(function(k){following[k]=true});
-Promise.all([api("GET","/api/public/kebeles").catch(function(){return{kebeles:[]}}),api("GET","/api/me").catch(function(){return null})]).then(function(r){
- KEBELES=r[0].kebeles;USER=r[1]&&r[1].user||null;
- opts("f-keb",KEBELES);opts("fl-keb",["All"].concat(KEBELES));drawFollows();
- if(isStaff()){
-  $("track-card").classList.add("hide");$("mine-card").classList.add("hide");$("submit-card").classList.add("hide");$("staff-add").classList.remove("hide");$("staff-rep").classList.remove("hide");if(USER.role!=="admin"&&USER.kebele)opts("f-keb",[USER.kebele]);$("post-card").classList.remove("hide");
-  opts("a-aud",USER.role==="admin"?[WHOLE].concat(KEBELES):[USER.kebele||""]);
-  if(USER.role!=="admin")$("kfilter").classList.add("hide");
-  loadInbox();
- }else loadMine();
- loadFeed(false);
-});
-</script></body></html>
+    // Optional photos: up to 3 JPEGs (the page shrinks them first), checked again here.
+    const photos = [];
+    const prefix = "data:image/jpeg;base64,";
+    for (const ph of (Array.isArray(b.photos) ? b.photos.slice(0, 3) : [])) {
+      if (typeof ph !== "string" || !ph.startsWith(prefix) || ph.length > 400000)
+        return res.status(400).json({ error: "Photos must be JPEG images under 250 KB each." });
+      const buf = Buffer.from(ph.slice(prefix.length), "base64");
+      if (buf.length < 100 || buf.length > 250 * 1024 || buf[0] !== 0xff || buf[1] !== 0xd8 || buf[2] !== 0xff)
+        return res.status(400).json({ error: "One of the photos is not a valid JPEG image." });
+      photos.push(buf);
+    }
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const client = await pool.connect();
+      try {
+        const id = crypto.randomUUID(), no = newTrackingNo();
+        await client.query("BEGIN");
+        await client.query(
+          `INSERT INTO citizen_reports (id,tracking_no,category,kebele,location_detail,title,description,phone,priority)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+          [id, no, b.category, kebele, cleanText(b.locationDetail, 200), title, cleanText(b.description, 3000), phone,
+           b.priority === "Urgent" ? "Urgent" : "Normal"]);
+        await client.query("INSERT INTO report_updates (report_id,status,note) VALUES ($1,'Submitted','Report submitted')", [id]);
+        for (const buf of photos)
+          await client.query("INSERT INTO report_photos (report_id, mime, data) VALUES ($1,'image/jpeg',$2)", [id, buf]);
+        await client.query("COMMIT");
+        return res.status(201).json({ trackingNo: no });
+      } catch (err) {
+        await client.query("ROLLBACK").catch(() => {});
+        if (err.code !== "23505") throw err; // tracking number collision: retry
+      } finally { client.release(); }
+    }
+    res.status(500).json({ error: "Could not create a tracking number. Try again." });
+  }));
+
+  // ---- public: track by number (no phone, no internal notes) ----
+  app.get("/api/citizen-reports/track/:no", trackLimiter, wrap(async (req, res) => {
+    const r = (await pool.query(
+      `SELECT id, tracking_no, category, kebele, title, priority, status, created_at, updated_at
+       FROM citizen_reports WHERE tracking_no = $1`, [String(req.params.no).toUpperCase().slice(0, 30)])).rows[0];
+    if (!r) return res.status(404).json({ error: "Not found." });
+    const updates = (await pool.query(
+      "SELECT status, note, created_at FROM report_updates WHERE report_id=$1 AND is_public=true ORDER BY id", [r.id])).rows;
+    delete r.id;
+    res.json({ report: { ...r, updates } });
+  }));
+
+  // ---- staff: inbox, update, stats ----
+  app.get("/api/citizen-reports", requireAuth, requireStaff, wrap(async (req, res) => {
+    const params = [];
+    const where = [scope(req.user, params)];
+    const k = cleanText(req.query.kebele, 100);
+    if (req.user.role === "admin" && k && k !== "All") { params.push(k); where.push(`kebele = $${params.length}`); }
+    if (STATUSES.includes(req.query.status)) { params.push(req.query.status); where.push(`status = $${params.length}`); }
+    if (CATEGORIES.includes(req.query.category)) { params.push(req.query.category); where.push(`category = $${params.length}`); }
+    const { rows } = await pool.query(
+      `SELECT id, tracking_no, category, kebele, location_detail, title, description, phone, priority, status,
+              assigned_dept, created_at, updated_at,
+              (SELECT COALESCE(array_agg(p.id ORDER BY p.id), '{}'::int[]) FROM report_photos p
+                 WHERE p.report_id = citizen_reports.id) AS photo_ids
+       FROM citizen_reports WHERE ${where.join(" AND ")}
+       ORDER BY (priority='Urgent' AND status NOT IN ('Resolved','Rejected')) DESC, created_at DESC LIMIT 200`, params);
+    res.json({ reports: rows });
+  }));
+
+  app.patch("/api/citizen-reports/:id", requireAuth, requireStaff, wrap(async (req, res) => {
+    const params = [req.params.id];
+    const cur = (await pool.query(`SELECT * FROM citizen_reports WHERE id=$1 AND ${scope(req.user, params)}`, params)).rows[0];
+    if (!cur) return res.status(404).json({ error: "Report not found." });
+    const b = req.body || {};
+    const status = b.status === undefined ? cur.status : b.status;
+    if (!STATUSES.includes(status)) return res.status(400).json({ error: "Invalid status." });
+    const note = cleanText(b.note, 1000);
+    if (status === "Rejected" && !note) return res.status(400).json({ error: "A reason is required to reject a report." });
+    const dept = b.assignedDept === undefined ? cur.assigned_dept : cleanText(b.assignedDept, 80);
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("UPDATE citizen_reports SET status=$2, assigned_dept=$3, updated_at=now() WHERE id=$1", [cur.id, status, dept]);
+      if (note || status !== cur.status)
+        await client.query("INSERT INTO report_updates (report_id,status,note,is_public,by_email) VALUES ($1,$2,$3,$4,$5)",
+          [cur.id, status, note, b.public !== false, req.user.email]);
+      await client.query("COMMIT");
+    } catch (err) { await client.query("ROLLBACK").catch(() => {}); throw err; } finally { client.release(); }
+    res.json({ ok: true });
+  }));
+
+  app.get("/api/citizen-reports-stats", requireAuth, requireStaff, wrap(async (req, res) => {
+    const p1 = [], w = scope(req.user, p1);
+    const tot = (await pool.query(
+      `SELECT COUNT(*)::int total,
+              COUNT(*) FILTER (WHERE status NOT IN ('Resolved','Rejected'))::int open,
+              COUNT(*) FILTER (WHERE status='Resolved')::int resolved
+       FROM citizen_reports WHERE ${w}`, p1)).rows[0];
+    const p2 = [], w2 = scope(req.user, p2);
+    const avg = (await pool.query(
+      `SELECT AVG(EXTRACT(EPOCH FROM (u.t - r.created_at)) / 86400) d
+       FROM citizen_reports r
+       JOIN LATERAL (SELECT MIN(created_at) t FROM report_updates WHERE report_id = r.id AND status='Resolved') u ON u.t IS NOT NULL
+       WHERE r.status='Resolved' AND ${w2.replace(/\bkebele\b/, "r.kebele")}`, p2)).rows[0].d;
+    const p3 = [], w3 = scope(req.user, p3);
+    const perKebele = (await pool.query(
+      `SELECT kebele, COUNT(*)::int received, COUNT(*) FILTER (WHERE status='Resolved')::int resolved
+       FROM citizen_reports WHERE ${w3} GROUP BY kebele ORDER BY kebele`, p3)).rows;
+    res.json({ ...tot, avgResolutionDays: avg == null ? null : Number(Number(avg).toFixed(1)), perKebele });
+  }));
+
+  // ---- announcements ----
+  // Public read: the audiences the visitor follows (sent as "A|B|C") plus all Emergency items.
+  app.get("/api/announcements", wrap(async (req, res) => {
+    const aud = String(req.query.audiences || WHOLE).split("|").map(s => s.trim().slice(0, 100)).filter(Boolean).slice(0, 30);
+    // Following any kebele also shows "All Kebeles" items; following any sector also shows "All Sectors" items.
+    const [kebs, secs] = await Promise.all([
+      pool.query("SELECT name FROM kebeles WHERE name = ANY($1::text[])", [aud]),
+      pool.query("SELECT name FROM sectors WHERE name = ANY($1::text[])", [aud])
+    ]);
+    if (kebs.rowCount) aud.push(ALL_KEBELES);
+    if (secs.rowCount) aud.push(ALL_SECTORS);
+    const { rows } = await pool.query(
+      `SELECT id, title_am, title_en, body_am, body_en, type, audience, publish_at, expires_at
+       FROM announcements
+       WHERE publish_at <= now() AND (expires_at IS NULL OR expires_at > now())
+         AND (audience = ANY($1::text[]) OR type = 'Emergency')
+       ORDER BY publish_at DESC LIMIT 100`, [aud]);
+    res.json({ announcements: rows });
+  }));
+
+  app.post("/api/announcements", requireAuth, requireStaff, wrap(async (req, res) => {
+    const b = req.body || {};
+    const titleEn = cleanText(b.titleEn, 150);
+    if (!titleEn) return res.status(400).json({ error: "English title is required." });
+    const type = b.type || "General";
+    if (!TYPES.includes(type)) return res.status(400).json({ error: "Invalid type." });
+    let audience = cleanText(b.audience, 100) || (req.user.role === "admin" ? WHOLE : req.user.kebele);
+    if (req.user.role === "kebele_officer") {
+      if (!req.user.kebele) return res.status(400).json({ error: "Your account has no kebele assigned." });
+      if (audience !== req.user.kebele) return res.status(403).json({ error: "You can post only to your own kebele." });
+    } else if (![WHOLE, ALL_KEBELES, ALL_SECTORS].includes(audience) && !(await kebeleExists(audience)) && !(await sectorExists(audience))) {
+      return res.status(400).json({ error: "Audience must be Whole Woreda, All Kebeles, All Sectors, a Kebele or a Sector from the list." });
+    }
+    const { rows } = await pool.query(
+      `INSERT INTO announcements (title_am,title_en,body_am,body_en,type,audience,publish_at,expires_at,created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7::timestamptz, now()),$8::timestamptz,$9) RETURNING id`,
+      [cleanText(b.titleAm, 150), titleEn, cleanText(b.bodyAm, 3000), cleanText(b.bodyEn, 3000), type, audience,
+       b.publishAt ? toDate(b.publishAt) : null, b.expiresAt ? toDate(b.expiresAt) : null, req.user.email]);
+    res.status(201).json({ id: rows[0].id });
+  }));
+
+  app.delete("/api/announcements/:id", requireAuth, requireStaff, wrap(async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: "Invalid id." });
+    const params = [id];
+    let extra = "";
+    if (req.user.role !== "admin") { params.push(req.user.kebele || ""); extra = " AND audience = $2"; }
+    const { rowCount } = await pool.query(`DELETE FROM announcements WHERE id=$1${extra}`, params);
+    if (!rowCount) return res.status(404).json({ error: "Announcement not found." });
+    res.json({ ok: true });
+  }));
+  // ---- staff: view a report photo (same kebele scope as the inbox) ----
+  app.get("/api/citizen-report-photos/:id", requireAuth, requireStaff, wrap(async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: "Invalid id." });
+    const r = (await pool.query(
+      `SELECT p.data, c.kebele FROM report_photos p JOIN citizen_reports c ON c.id = p.report_id WHERE p.id = $1`, [id])).rows[0];
+    if (!r || (req.user.role !== "admin" && r.kebele !== req.user.kebele)) return res.status(404).json({ error: "Not found." });
+    res.set({ "Content-Type": "image/jpeg", "Cache-Control": "private, max-age=3600", "X-Content-Type-Options": "nosniff" });
+    res.send(r.data);
+  }));
+
+  // ================= Periodic (monthly / quarterly) reports to Woreda administration =================
+  // Kebele officers: Monthly. Sector heads: Monthly or Quarterly. Administrator reviews.
+  const PERIOD_TYPES = ["Monthly", "Quarterly"];
+  const periodOk = (type, label) =>
+    type === "Monthly" ? /^\d{4}-(0[1-9]|1[0-2])$/.test(label)
+    : type === "Quarterly" ? /^\d{4}-Q[1-4]$/.test(label) : false;
+  const PR_COLS = `id, unit_type, unit_name, period_type, period_label, summary, achievements, challenges,
+    next_plan, status, feedback, submitted_by, submitted_name, reviewed_by, reviewed_at, created_at, updated_at`;
+
+  function myUnit(user) {
+    if (user.role === "kebele_officer" && user.kebele) return { type: "kebele", name: user.kebele, allowed: ["Monthly"] };
+    if (user.role === "sector_head" && user.sector) return { type: "sector", name: user.sector, allowed: ["Monthly", "Quarterly"] };
+    return null;
+  }
+  const adminOnly = (req, res, next) =>
+    req.user.role === "admin" ? next() : res.status(403).json({ error: "Administrator access required." });
+
+  app.get("/api/periodic-reports", requireAuth, wrap(async (req, res) => {
+    const where = [], params = [];
+    let unit = null;
+    if (req.user.role === "admin") {
+      for (const [q, col] of [["periodType", "period_type"], ["period", "period_label"], ["status", "status"], ["unitType", "unit_type"]]) {
+        const v = cleanText(req.query[q], 40);
+        if (v) { params.push(v); where.push(`${col} = $${params.length}`); }
+      }
+    } else {
+      unit = myUnit(req.user);
+      if (!unit) return res.json({ reports: [], unit: null });
+      params.push(unit.type, unit.name);
+      where.push("unit_type = $1 AND unit_name = $2");
+    }
+    const { rows } = await pool.query(
+      `SELECT ${PR_COLS} FROM periodic_reports ${where.length ? "WHERE " + where.join(" AND ") : ""}
+       ORDER BY period_label DESC, unit_name LIMIT 500`, params);
+    res.json({ reports: rows, unit });
+  }));
+
+  app.post("/api/periodic-reports", requireAuth, wrap(async (req, res) => {
+    const u = myUnit(req.user);
+    if (!u) return res.status(403).json({ error: "Only kebele officers and sector heads with an assigned kebele or sector submit these reports." });
+    const b = req.body || {};
+    const periodType = cleanText(b.periodType, 20), label = cleanText(b.period, 10);
+    if (!u.allowed.includes(periodType)) return res.status(400).json({ error: `Your role submits: ${u.allowed.join(" or ")} reports.` });
+    if (!periodOk(periodType, label)) return res.status(400).json({ error: "Choose a valid period." });
+    const summary = cleanText(b.summary, 4000);
+    if (!summary) return res.status(400).json({ error: "Summary is required." });
+    try {
+      const { rows } = await pool.query(
+        `INSERT INTO periodic_reports (id, unit_type, unit_name, period_type, period_label, summary, achievements,
+           challenges, next_plan, submitted_by, submitted_name)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING ${PR_COLS}`,
+        [crypto.randomUUID(), u.type, u.name, periodType, label, summary, cleanText(b.achievements, 4000),
+         cleanText(b.challenges, 4000), cleanText(b.nextPlan, 4000), req.user.email, req.user.name || ""]);
+      res.status(201).json({ report: rows[0] });
+    } catch (err) {
+      if (err.code === "23505") return res.status(409).json({ error: "A report for this period already exists. Edit it instead." });
+      throw err;
+    }
+  }));
+
+  app.put("/api/periodic-reports/:id", requireAuth, wrap(async (req, res) => {
+    const u = myUnit(req.user);
+    if (!u) return res.status(403).json({ error: "Not allowed." });
+    const cur = (await pool.query("SELECT status FROM periodic_reports WHERE id=$1 AND unit_type=$2 AND unit_name=$3",
+      [req.params.id, u.type, u.name])).rows[0];
+    if (!cur) return res.status(404).json({ error: "Report not found." });
+    if (cur.status === "Reviewed") return res.status(409).json({ error: "This report was already approved and cannot be edited." });
+    const b = req.body || {};
+    const summary = cleanText(b.summary, 4000);
+    if (!summary) return res.status(400).json({ error: "Summary is required." });
+    const { rows } = await pool.query(
+      `UPDATE periodic_reports SET summary=$2, achievements=$3, challenges=$4, next_plan=$5,
+         status='Submitted', submitted_by=$6, submitted_name=$7, updated_at=now()
+       WHERE id=$1 RETURNING ${PR_COLS}`,
+      [req.params.id, summary, cleanText(b.achievements, 4000), cleanText(b.challenges, 4000),
+       cleanText(b.nextPlan, 4000), req.user.email, req.user.name || ""]);
+    res.json({ report: rows[0] });
+  }));
+
+  app.patch("/api/periodic-reports/:id/review", requireAuth, adminOnly, wrap(async (req, res) => {
+    const status = req.body && req.body.status;
+    if (!["Reviewed", "Returned"].includes(status)) return res.status(400).json({ error: "Status must be Reviewed or Returned." });
+    const feedback = cleanText(req.body.feedback, 2000);
+    if (status === "Returned" && !feedback) return res.status(400).json({ error: "Write what needs to be corrected." });
+    const { rows } = await pool.query(
+      `UPDATE periodic_reports SET status=$2, feedback=$3, reviewed_by=$4, reviewed_at=now(), updated_at=now()
+       WHERE id=$1 RETURNING ${PR_COLS}`, [req.params.id, status, feedback, req.user.email]);
+    if (!rows.length) return res.status(404).json({ error: "Report not found." });
+    res.json({ report: rows[0] });
+  }));
+
+  // Administrator: who has submitted for a period and who is missing.
+  app.get("/api/periodic-reports-status", requireAuth, adminOnly, wrap(async (req, res) => {
+    const type = cleanText(req.query.periodType, 20), label = cleanText(req.query.period, 10);
+    if (!PERIOD_TYPES.includes(type) || !periodOk(type, label)) return res.status(400).json({ error: "Choose a valid period." });
+    const subs = (await pool.query(
+      "SELECT id, unit_type, unit_name, status FROM periodic_reports WHERE period_type=$1 AND period_label=$2", [type, label])).rows;
+    // A sector's quarterly report also covers each month of that quarter.
+    let qSubs = [];
+    if (type === "Monthly") {
+      const [y, m] = label.split("-");
+      qSubs = (await pool.query(
+        "SELECT id, unit_name, status FROM periodic_reports WHERE period_type='Quarterly' AND unit_type='sector' AND period_label=$1",
+        [`${y}-Q${Math.ceil(Number(m) / 3)}`])).rows;
+    }
+    const kebeles = type === "Monthly" ? (await pool.query("SELECT name FROM kebeles WHERE active = true ORDER BY name")).rows : [];
+    const sectors = (await pool.query("SELECT name FROM sectors WHERE active = true ORDER BY name")).rows;
+    const units = [
+      ...kebeles.map(k => ({ unitType: "kebele", unitName: k.name })),
+      ...sectors.map(s => ({ unitType: "sector", unitName: s.name }))
+    ].map(x => {
+      let hit = subs.find(s => s.unit_type === x.unitType && s.unit_name === x.unitName);
+      let via = null;
+      if (!hit && x.unitType === "sector") { hit = qSubs.find(s => s.unit_name === x.unitName); if (hit) via = "Quarterly"; }
+      return { ...x, submitted: !!hit, status: hit ? hit.status : null, id: hit ? hit.id : null, via };
+    });
+    res.json({ units, submitted: units.filter(u => u.submitted).length, total: units.length });
+  }));
+
+}
+
+module.exports = { initTables, mount, WHOLE, STATUSES, CATEGORIES, TYPES };

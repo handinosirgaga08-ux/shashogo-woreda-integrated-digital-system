@@ -38,7 +38,7 @@
   const getMe = () => (typeof me !== "undefined" ? me : null);
   const allowed = u => !!u && ["sector_officer", "sector_head", "admin"].includes(u.role);
 
-  let btn = null, panel = null, reports = [], lastEmail = null, lastLang = null;
+  let btn = null, panel = null, reports = [], lastEmail = null, lastLang = null, busy = false;
 
   function addStyle() {
     const s = document.createElement("style");
@@ -82,7 +82,7 @@
 
   async function load() {
     try {
-      reports = (await api("/api/officer-reports")).reports;
+      reports = (await api("/api/officer-reports")).reports || [];
       render();
     } catch (err) {
       render();
@@ -93,8 +93,9 @@
   const badge = s => `<span class="status ${s === "Pending" ? "pending" : (s === "Returned" ? "inactive" : "")}">${esc(L(s))}</span>`;
 
   function thread(r) {
-    return r.feedback.length
-      ? r.feedback.map(f => `<div class="orfb ${esc(f.role)}"><b>${esc(f.by)} · ${esc(L(f.role))} · ${esc(String(f.createdAt).slice(0, 10))}</b><br>${esc(f.text)}</div>`).join("")
+    const list = r.feedback || [];
+    return list.length
+      ? list.map(f => `<div class="orfb ${esc(f.role)}"><b>${esc(f.by)} · ${esc(L(f.role))} · ${esc(String(f.createdAt).slice(0, 10))}</b><br>${esc(f.text)}</div>`).join("")
       : `<p class="muted">${esc(L("noFb"))}</p>`;
   }
 
@@ -140,12 +141,15 @@
   async function onClick(e) {
     const b = e.target.closest("button[data-act]");
     if (!b) return;
+    if (busy) return; // ignore double taps while a request is running
     const act = b.dataset.act, id = b.dataset.id;
     const box = id ? document.getElementById("orbox_" + id) : null;
     const text = box ? box.value.trim() : "";
     setErr("");
+    busy = true;
+    b.disabled = true;
     try {
-      if (act === "refresh") return load();
+      if (act === "refresh") { await load(); return; }
       if (act === "submit") {
         const body = {
           title: document.getElementById("orTitle").value.trim(),
@@ -166,7 +170,12 @@
         await api(`/api/officer-reports/${encodeURIComponent(id)}/resubmit`, { method: "POST", body: "{}" });
       }
       await load();
-    } catch (err) { setErr(err.message); }
+    } catch (err) {
+      setErr(err.message);
+    } finally {
+      busy = false;
+      b.disabled = false; // harmless if the button was replaced by a re-render
+    }
   }
 
   // The page signs users in and out on its own, so check its state regularly.
@@ -176,7 +185,8 @@
       build();
       btn.classList.remove("hidden");
       if (u.email !== lastEmail) { lastEmail = u.email; reports = []; panel.classList.add("hidden"); btn.classList.remove("active"); }
-      if (lang !== lastLang) { lastLang = lang; btn.textContent = L("tab"); if (!panel.classList.contains("hidden")) render(); }
+      const cl = curLang();
+      if (cl !== lastLang) { lastLang = cl; btn.textContent = L("tab"); if (!panel.classList.contains("hidden")) render(); }
     } else if (btn) {
       lastEmail = null;
       btn.classList.add("hidden");

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Woreda announcements</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f3f6f4;--card:#fff;--field:#f7faf8;--line:#d3ded7;--text:#14221a;--muted:#5b6d62;--accent:#1f7a4d;--on:#fff;--warn:#a15c00;--warnbg:#fff1db;--bad:#b3261e;--badbg:#fde7e5;--ok:#1f7a4d;--okbg:#e2f3ea;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101914;--card:#18231d;--field:#111b16;--line:#2b3a32;--text:#e6efe9;--muted:#9bada2;--accent:#4fc08a;--on:#0e1f16;--warn:#ffc46b;--warnbg:#3a2d12;--bad:#ff9a92;--badbg:#3c1d1a;--ok:#7fd9ad;--okbg:#17332549}}
+*,*:before,*:after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Roboto,"Noto Sans Ethiopic",system-ui,sans-serif}
+:lang(am){font-family:"Noto Sans Ethiopic",Roboto,system-ui,sans-serif}
+header{background:var(--accent);color:var(--on)}
+.wrap{max-width:760px;margin:0 auto;padding:0 16px}
+.hd{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 0 10px}
+h1{font-size:21px;margin:0}
+.sub{margin:2px 0 0;font-size:13px;opacity:.9}
+.lang{display:flex;border:1px solid currentColor;border-radius:8px;overflow:hidden;flex:none}
+.lang button{border:0;background:transparent;color:inherit;padding:6px 10px;font:inherit;cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--on);color:var(--accent);font-weight:700}
+nav{display:flex;gap:4px}
+nav button{flex:1;border:0;background:transparent;color:inherit;padding:10px 6px;font:inherit;font-weight:500;cursor:pointer;border-bottom:3px solid transparent;opacity:.8}
+nav button[aria-selected="true"]{border-bottom-color:var(--on);opacity:1;font-weight:700}
+main{padding:16px 0 40px}
+.bar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.bar .full{grid-column:1/-1}
+select,input[type=text],input[type=date],textarea{width:100%;background:var(--field);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:10px;font:inherit}
+textarea{min-height:90px;resize:vertical}
+label.l{display:block;font-weight:600;font-size:13px;margin:14px 0 5px}
+label.l small{font-weight:400;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:10px}
+.card.urgent{border-left:5px solid var(--bad)}
+.card.important{border-left:5px solid var(--warn)}
+.card.expired{opacity:.6}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}
+.badge{font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--okbg);color:var(--ok)}
+.badge.important{background:var(--warnbg);color:var(--warn)}
+.badge.urgent{background:var(--badbg);color:var(--bad)}
+.badge.gray{background:var(--field);color:var(--muted);border:1px solid var(--line);font-weight:500}
+.card h3{margin:2px 0 6px;font-size:17px}
+.card p{margin:0 0 10px;white-space:pre-wrap}
+.meta{font-size:12.5px;color:var(--muted)}
+.acts{display:flex;gap:8px;margin-top:8px}
+.btn{background:var(--accent);color:var(--on);border:0;border-radius:8px;padding:10px 14px;font:inherit;font-weight:600;cursor:pointer}
+.btn.sec{background:transparent;color:var(--text);border:1px solid var(--line);padding:6px 10px;font-weight:500;font-size:13px}
+.btn.full{width:100%;margin-top:16px;padding:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin-top:8px}
+.chk{display:flex;align-items:center;gap:8px;font-size:14px}
+.chk input{width:18px;height:18px;accent-color:var(--accent)}
+.empty{text-align:center;color:var(--muted);padding:30px 10px}
+.note{font-size:12.5px;color:var(--muted);margin-top:14px}
+.err{color:var(--bad);margin-top:10px;font-weight:500}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="hd">
+      <div><h1 data-t="title"></h1><p class="sub" data-t="sub"></p></div>
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-l="en" aria-pressed="true">EN</button>
+        <button type="button" data-l="am" aria-pressed="false">አማ</button>
+      </div>
+    </div>
+    <nav role="tablist">
+      <button role="tab" id="tabBoard" aria-selected="true" data-t="board"></button>
+      <button role="tab" id="tabPost" aria-selected="false" data-t="post"></button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="vBoard">
+    <div class="bar">
+      <select id="fK" aria-label="Kebele"></select>
+      <select id="fS" aria-label="Sector"></select>
+      <input class="full" type="text" id="q" data-ph="search">
+    </div>
+    <div id="list"></div>
+  </section>
+
+  <section id="vPost" hidden>
+    <div class="card">
+      <label class="l" for="tEn"><span data-t="tEn"></span></label>
+      <input type="text" id="tEn">
+      <label class="l" for="bEn" data-t="bEn"></label>
+      <textarea id="bEn"></textarea>
+      <label class="l" for="tAm" data-t="tAm"></label>
+      <input type="text" id="tAm" lang="am">
+      <label class="l" for="bAm" data-t="bAm"></label>
+      <textarea id="bAm" lang="am"></textarea>
+
+      <label class="l" data-t="toK"></label>
+      <label class="chk"><input type="checkbox" id="allK" checked> <span data-t="allK"></span></label>
+      <div class="grid" id="kList" hidden></div>
+
+      <label class="l" data-t="toS"></label>
+      <label class="chk"><input type="checkbox" id="allS" checked> <span data-t="allS"></span></label>
+      <div class="grid" id="sList" hidden></div>
+
+      <label class="l" for="pri" data-t="pri"></label>
+      <select id="pri"></select>
+
+      <label class="l" for="exp"><span data-t="exp"></span> <small data-t="opt"></small></label>
+      <input type="date" id="exp">
+
+      <button class="btn full" id="publish" data-t="publish"></button>
+      <div class="err" id="err" hidden></div>
+      <p class="note" data-t="note"></p>
+    </div>
+  </section>
+</main>
+
+<script>
+// ---- Edit these lists to match your Woreda ----
+var KEBELES=6;
+var T={
+en:{title:"Woreda announcements",sub:"Official notices for all Kebeles and sectors",board:"Announcements",post:"Post announcement",
+search:"Search announcements",allKf:"All Kebeles",allSf:"All sectors",
+tEn:"Title (English)",bEn:"Message (English)",tAm:"Title (Amharic)",bAm:"Message (Amharic)",
+toK:"Send to Kebeles",allK:"Whole Woreda (all Kebeles)",toS:"Sectors",allS:"All sectors",
+pri:"Priority",exp:"Valid until",opt:"(optional)",publish:"Publish announcement",
+note:"Office use. Add at least one language. Announcements are saved in this browser only until the page is connected to the Woreda server.",
+pNormal:"Normal",pImportant:"Important",pUrgent:"Urgent",
+needText:"Add a title and message in English or Amharic.",needK:"Choose at least one Kebele.",needS:"Choose at least one sector.",
+empty:"No announcements for this selection.",posted:"Posted",until:"Valid until",expired:"Expired",
+copy:"Copy",copied:"Copied",del:"Delete",confirmDel:"Delete this announcement?",wholeW:"Whole Woreda",
+sectors:["Water","Roads","Health","Education","Electricity","Sanitation","Security"],kb:"Kebele "},
+am:{title:"የወረዳ ማስታወቂያዎች",sub:"ለሁሉም ቀበሌዎችና ዘርፎች ይፋዊ ማስታወቂያ",board:"ማስታወቂያዎች",post:"ማስታወቂያ ለጥፍ",
+search:"ማስታወቂያ ፈልግ",allKf:"ሁሉም ቀበሌዎች",allSf:"ሁሉም ዘርፎች",
+tEn:"ርዕስ (እንግሊዝኛ)",bEn:"መልዕክት (እንግሊዝኛ)",tAm:"ርዕስ (አማርኛ)",bAm:"መልዕክት (አማርኛ)",
+toK:"የሚላክላቸው ቀበሌዎች",allK:"መላው ወረዳ (ሁሉም ቀበሌዎች)",toS:"ዘርፎች",allS:"ሁሉም ዘርፎች",
+pri:"ደረጃ",exp:"የሚያገለግለው እስከ",opt:"(አማራጭ)",publish:"ማስታወቂያ አውጣ",
+note:"ለጽ/ቤት አገልግሎት። ቢያንስ በአንድ ቋንቋ ይሙሉ። ገጹ ከወረዳው ሰርቨር እስኪገናኝ ድረስ ማስታወቂያዎች በዚህ ብራውዘር ብቻ ይቀመጣሉ።",
+pNormal:"መደበኛ",pImportant:"ጠቃሚ",pUrgent:"አስቸኳይ",
+needText:"በእንግሊዝኛ ወይም በአማርኛ ርዕስና መልዕክት ያስገቡ።",needK:"ቢያንስ አንድ ቀበሌ ይምረጡ።",needS:"ቢያንስ አንድ ዘርፍ ይምረጡ።",
+empty:"ለዚህ ምርጫ ማስታወቂያ የለም።",posted:"የወጣው",until:"እስከ",expired:"ጊዜው አልፏል",
+copy:"ቅዳ",copied:"ተቀድቷል",del:"ሰርዝ",confirmDel:"ይህ ማስታወቂያ ይሰረዝ?",wholeW:"መላው ወረዳ",
+sectors:["ውሃ","መንገድ","ጤና","ትምህርት","ኤሌክትሪክ","ንጽህና","ደህንነት"],kb:"ቀበሌ "}
+};
+var lang="en",items=[],$=function(i){return document.getElementById(i)};
+function today(){return new Date().toISOString().slice(0,10)}
+function kName(i){return T[lang].kb+(i+1<10?"0":"")+(i+1)}
+try{items=JSON.parse(localStorage.getItem("woreda_ann")||"null")||[]}catch(e){}
+if(!items.length){
+  items=[
+   {id:1,pri:"urgent",k:[1,2],s:[0],en:{t:"Water supply interruption",b:"Water will be off in Kebele 02 and 03 on Monday from 8:00 to 17:00 for pipe repair. Please store water in advance."},am:{t:"የውሃ አቅርቦት መቋረጥ",b:"በቀበሌ 02 እና 03 ሰኞ ከ2፡00 እስከ 11፡00 የቧንቧ ጥገና ስለሚደረግ ውሃ ይቋረጣል። አስቀድመው ውሃ ያስቀምጡ።"},at:today(),exp:""},
+   {id:2,pri:"important",k:[],s:[2],en:{t:"Free vaccination week",b:"Children under 5 can receive free vaccines at every Kebele health post this week. Bring your child's card."},am:{t:"ነፃ የክትባት ሳምንት",b:"ከ5 ዓመት በታች ያሉ ልጆች በሁሉም ቀበሌ ጤና ኬላ ነፃ ክትባት ያገኛሉ። የልጅዎን ካርድ ይዘው ይምጡ።"},at:today(),exp:""},
+   {id:3,pri:"normal",k:[],s:[],en:{t:"Office hours for the Woreda administration",b:"The Woreda office is open Monday to Friday, 2:30 to 11:30 local time. Report problems through the Report a problem page."},am:{t:"የወረዳ አስተዳደር የሥራ ሰዓት",b:"የወረዳ ጽ/ቤት ከሰኞ እስከ ዓርብ ከ2፡30 እስከ 11፡30 ክፍት ነው። ችግሮችን በ“ችግር ያሳውቁ” ገጽ በኩል ያሳውቁ።"},at:today(),exp:""}
+  ];
+}
+function save(){try{localStorage.setItem("woreda_ann",JSON.stringify(items))}catch(e){}}
+function mk(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
+function pick(a){var o=a[lang];return o&&o.t?o:(a[lang==="en"?"am":"en"]||{t:"",b:""})}
+
+function fillSel(sel,first,arr,val){sel.innerHTML="";sel.add(new Option(first,""));arr.forEach(function(t,i){sel.add(new Option(t,String(i)))});sel.value=val||""}
+function checks(box,names,pre){box.innerHTML="";names.forEach(function(n,i){
+  var l=mk("label","chk"),c=document.createElement("input");c.type="checkbox";c.value=i;
+  l.appendChild(c);l.appendChild(mk("span",null,n));box.appendChild(l)})}
+function chosen(box){return Array.prototype.map.call(box.querySelectorAll("input:checked"),function(c){return +c.value})}
+
+function renderList(){
+  var t=T[lang],fk=$("fK").value,fs=$("fS").value,q=$("q").value.trim().toLowerCase(),L=$("list");
+  L.innerHTML="";
+  var rank={urgent:0,important:1,normal:2};
+  var shown=items.filter(function(a){
+    if(fk!==""&&a.k.length&&a.k.indexOf(+fk)<0)return false;
+    if(fs!==""&&a.s.length&&a.s.indexOf(+fs)<0)return false;
+    var o=pick(a);
+    if(q&&(o.t+" "+o.b).toLowerCase().indexOf(q)<0)return false;
+    return true;
+  }).sort(function(a,b){
+    var ea=a.exp&&a.exp<today(),eb=b.exp&&b.exp<today();
+    if(ea!==eb)return ea?1:-1;
+    return rank[a.pri]-rank[b.pri]||b.id-a.id;
+  });
+  if(!shown.length){L.appendChild(mk("div","empty",t.empty));return}
+  shown.forEach(function(a){
+    var o=pick(a),ex=a.exp&&a.exp<today();
+    var c=mk("article","card "+a.pri+(ex?" expired":""));
+    var r=mk("div","row");
+    r.appendChild(mk("span","badge "+a.pri,t["p"+a.pri[0].toUpperCase()+a.pri.slice(1)]));
+    if(ex)r.appendChild(mk("span","badge gray",t.expired));
+    r.appendChild(mk("span","badge gray",a.k.length?a.k.map(function(i){return kName(i)}).join(", "):t.wholeW));
+    r.appendChild(mk("span","badge gray",a.s.length?a.s.map(function(i){return t.sectors[i]}).join(", "):t.allSf));
+    c.appendChild(r);
+    c.appendChild(mk("h3",null,o.t));
+    c.appendChild(mk("p",null,o.b));
+    c.appendChild(mk("div","meta",t.posted+": "+a.at+(a.exp?"  |  "+t.until+": "+a.exp:"")));
+    var ac=mk("div","acts");
+    var cp=mk("button","btn sec",t.copy);cp.type="button";
+    cp.onclick=function(){
+      var txt=o.t+"\n\n"+o.b;
+      try{navigator.clipboard.writeText(txt).then(function(){cp.textContent=t.copied})}catch(e){}
+    };
+    var dl=mk("button","btn sec",t.del);dl.type="button";
+    dl.onclick=function(){if(confirm(t.confirmDel)){items=items.filter(function(x){return x.id!==a.id});save();renderList()}};
+    ac.appendChild(cp);ac.appendChild(dl);c.appendChild(ac);L.appendChild(c);
+  });
+}
+function render(){
+  var t=T[lang],fk=$("fK").value,fs=$("fS").value;
+  document.documentElement.lang=lang;
+  document.querySelectorAll("[data-t]").forEach(function(e){e.textContent=t[e.dataset.t]});
+  $("q").placeholder=t.search;
+  var ks=[];for(var i=0;i<KEBELES;i++)ks.push(kName(i));
+  fillSel($("fK"),t.allKf,ks,fk);fillSel($("fS"),t.allSf,t.sectors,fs);
+  var pk=chosen($("kList")),ps=chosen($("sList"));
+  checks($("kList"),ks);checks($("sList"),t.sectors);
+  pk.forEach(function(i){$("kList").querySelectorAll("input")[i].checked=true});
+  ps.forEach(function(i){$("sList").querySelectorAll("input")[i].checked=true});
+  var pv=$("pri").value||"normal";
+  $("pri").innerHTML="";
+  [["normal",t.pNormal],["important",t.pImportant],["urgent",t.pUrgent]].forEach(function(p){$("pri").add(new Option(p[1],p[0]))});
+  $("pri").value=pv;
+  document.querySelectorAll(".lang button").forEach(function(b){b.setAttribute("aria-pressed",b.dataset.l===lang)});
+  renderList();
+}
+document.querySelectorAll(".lang button").forEach(function(b){b.onclick=function(){lang=b.dataset.l;render()}});
+["fK","fS"].forEach(function(i){$(i).onchange=renderList});$("q").oninput=renderList;
+$("allK").onchange=function(){$("kList").hidden=$("allK").checked};
+$("allS").onchange=function(){$("sList").hidden=$("allS").checked};
+function tab(post){
+  $("vBoard").hidden=post;$("vPost").hidden=!post;
+  $("tabBoard").setAttribute("aria-selected",!post);$("tabPost").setAttribute("aria-selected",post);
+}
+$("tabBoard").onclick=function(){tab(false)};$("tabPost").onclick=function(){tab(true)};
+$("publish").onclick=function(){
+  var t=T[lang],er=$("err");er.hidden=true;
+  var te=$("tEn").value.trim(),be=$("bEn").value.trim(),ta=$("tAm").value.trim(),ba=$("bAm").value.trim();
+  function fail(m){er.textContent=m;er.hidden=false}
+  if(!((te&&be)||(ta&&ba)))return fail(t.needText);
+  var k=$("allK").checked?[]:chosen($("kList")),s=$("allS").checked?[]:chosen($("sList"));
+  if(!$("allK").checked&&!k.length)return fail(t.needK);
+  if(!$("allS").checked&&!s.length)return fail(t.needS);
+  items.push({id:Date.now(),pri:$("pri").value,k:k,s:s,en:{t:te,b:be},am:{t:ta,b:ba},at:today(),exp:$("exp").value});
+  save();
+  ["tEn","bEn","tAm","bAm","exp"].forEach(function(i){$(i).value=""});
+  $("allK").checked=true;$("allS").checked=true;$("kList").hidden=true;$("sList").hidden=true;
+  render();tab(false);
+};
+render();
+</script>
+</body>
+</html>

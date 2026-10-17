@@ -2,8 +2,10 @@
 const crypto = require("crypto");
 const rateLimit = require("express-rate-limit");
 
-const STATUSES = ["Submitted", "Received", "In progress", "Resolved", "Rejected"];
-const CATEGORIES = ["Service complaint", "Infrastructure", "Security", "Health", "Agriculture", "Suggestion", "Other"];
+const STATUSES = ["Submitted", "Received", "In progress", "On hold", "Resolved", "Rejected"];
+const CLOSED = ["Resolved", "Rejected"];
+const CATEGORIES = ["Service complaint", "Infrastructure", "Water", "Road and transport", "Education",
+  "Security", "Health", "Agriculture", "Suggestion", "Other"];
 const TYPES = ["General", "Emergency", "Event", "Service notice"];
 const WHOLE = "Whole Woreda";
 const ALL_KEBELES = "All Kebeles";
@@ -26,6 +28,12 @@ async function initTables(pool) {
       created_at TIMESTAMPTZ DEFAULT now(),
       updated_at TIMESTAMPTZ DEFAULT now()
     );
+    -- New columns (safe to run on an existing database)
+    ALTER TABLE citizen_reports ADD COLUMN IF NOT EXISTS email TEXT;
+    ALTER TABLE citizen_reports ADD COLUMN IF NOT EXISTS assigned_to TEXT NOT NULL DEFAULT '';
+    ALTER TABLE citizen_reports ADD COLUMN IF NOT EXISTS due_date DATE;
+    ALTER TABLE citizen_reports ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ;
+
     CREATE TABLE IF NOT EXISTS report_updates (
       id SERIAL PRIMARY KEY,
       report_id TEXT NOT NULL REFERENCES citizen_reports(id) ON DELETE CASCADE,
@@ -48,6 +56,8 @@ async function initTables(pool) {
       created_by TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_cr_kebele_status ON citizen_reports (kebele, status);
+    CREATE INDEX IF NOT EXISTS idx_cr_assigned ON citizen_reports (assigned_to);
+    CREATE INDEX IF NOT EXISTS idx_cr_created ON citizen_reports (created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_ann_pub ON announcements (publish_at);
     CREATE TABLE IF NOT EXISTS report_photos (
       id SERIAL PRIMARY KEY,
@@ -90,15 +100,21 @@ function newTrackingNo() {
 }
 
 function mount(app, { pool, wrap, requireAuth, cleanText }) {
+  // Editors: can change reports and post announcements.
   const requireStaff = (req, res, next) =>
     ["admin", "kebele_officer"].includes(req.user.role)
       ? next()
       : res.status(403).json({ error: "Staff access required." });
+  // Viewers: editors plus sector heads (read-only on citizen reports).
+  const requireViewer = (req, res, next) =>
+    ["admin", "kebele_officer", "sector_head"].includes(req.user.role)
+      ? next()
+      : res.status(403).json({ error: "Staff access required." });
 
-  // admin sees all; kebele officer only their kebele; no kebele assigned = nothing.
+  // admin and sector heads see all; kebele officer only their kebele; no kebele assigned = nothing.
   // `col` lets callers qualify the column (e.g. "r.kebele") when the query uses a table alias.
   function scope(user, params, col = "kebele") {
-    if (user.role === "admin") return "TRUE";
+    if (user.role === "admin" || user.role === "sector_head") return "TRUE";
     if (!user.kebele) return "FALSE";
     params.push(user.kebele);
     return `${col} = $${params.length}`;
@@ -109,6 +125,18 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
     const t = Date.parse(v);
     return Number.isNaN(t) ? undefined : new Date(t).toISOString();
   };
+  // YYYY-MM-DD only. null for empty, undefined for invalid.
+  const toDay = v => {
+    if (v === undefined || v === null || v === "") return null;
+    const s = String(v).slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s)) ? s : undefined;
+  };
+  const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
+  const intParam = (v, def, min, max) => {
+    const n = parseInt(v, 10);
+    return Number.isNaN(n) ? def : Math.min(max, Math.max(min, n));
+  };
+
   async function sectorExists(name) {
     const total = await pool.query("SELECT COUNT(*)::int n FROM sectors WHERE active = true");
     if (total.rows[0].n === 0) return false; // no sectors set up: nothing to match
@@ -137,6 +165,11 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
     res.json({ sectors: rows.map(r => r.name) });
   }));
 
+  // ---- public: lists the report form needs (categories, statuses) ----
+  app.get("/api/public/report-options", wrap(async (req, res) => {
+    res.json({ categories: CATEGORIES, statuses: STATUSES });
+  }));
+
   // ---- public: submit a report (no login) ----
   app.post("/api/citizen-reports", submitLimiter, wrap(async (req, res) => {
     const b = req.body || {};
@@ -147,6 +180,8 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
     const anonymous = Boolean(b.anonymous);
     const phone = anonymous ? null : (cleanText(b.phone, 20).replace(/\s+/g, "") || null);
     if (phone && !/^(?:\+251|0)[79]\d{8}$/.test(phone)) return res.status(400).json({ error: "Phone must look like 09XXXXXXXX." });
+    const email = anonymous ? null : (cleanText(b.email, 254).toLowerCase() || null);
+    if (email && !EMAIL_RE.test(email)) return res.status(400).json({ error: "Email address is not valid." });
 
     // Optional photos: up to 3 JPEGs (the page shrinks them first), checked again here.
     const photos = [];
@@ -166,9 +201,9 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
         const id = crypto.randomUUID(), no = newTrackingNo();
         await client.query("BEGIN");
         await client.query(
-          `INSERT INTO citizen_reports (id,tracking_no,category,kebele,location_detail,title,description,phone,priority)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-          [id, no, b.category, kebele, cleanText(b.locationDetail, 200), title, cleanText(b.description, 3000), phone,
+          `INSERT INTO citizen_reports (id,tracking_no,category,kebele,location_detail,title,description,phone,email,priority)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [id, no, b.category, kebele, cleanText(b.locationDetail, 200), title, cleanText(b.description, 3000), phone, email,
            b.priority === "Urgent" ? "Urgent" : "Normal"]);
         await client.query("INSERT INTO report_updates (report_id,status,note) VALUES ($1,'Submitted','Report submitted')", [id]);
         for (const buf of photos)
@@ -183,10 +218,10 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
     res.status(500).json({ error: "Could not create a tracking number. Try again." });
   }));
 
-  // ---- public: track by number (no phone, no internal notes) ----
+  // ---- public: track by number (no phone, no email, no internal notes) ----
   app.get("/api/citizen-reports/track/:no", trackLimiter, wrap(async (req, res) => {
     const r = (await pool.query(
-      `SELECT id, tracking_no, category, kebele, title, priority, status, created_at, updated_at
+      `SELECT id, tracking_no, category, kebele, title, priority, status, created_at, updated_at, resolved_at
        FROM citizen_reports WHERE tracking_no = $1`, [String(req.params.no).toUpperCase().slice(0, 30)])).rows[0];
     if (!r) return res.status(404).json({ error: "Not found." });
     const updates = (await pool.query(
@@ -195,53 +230,145 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
     res.json({ report: { ...r, updates } });
   }));
 
-  // ---- staff: inbox, update, stats ----
-  app.get("/api/citizen-reports", requireAuth, requireStaff, wrap(async (req, res) => {
+  // ---- staff: inbox with search, filters and pagination ----
+  // Query: page, limit (1-100), q, status, category, priority, kebele (admin/sector head),
+  //        assigned (me | unassigned | email), overdue=1, from, to (YYYY-MM-DD), sort (urgent | newest | oldest | due)
+  app.get("/api/citizen-reports", requireAuth, requireViewer, wrap(async (req, res) => {
     const params = [];
     const where = [scope(req.user, params)];
-    const k = cleanText(req.query.kebele, 100);
-    if (req.user.role === "admin" && k && k !== "All") { params.push(k); where.push(`kebele = $${params.length}`); }
-    if (STATUSES.includes(req.query.status)) { params.push(req.query.status); where.push(`status = $${params.length}`); }
-    if (CATEGORIES.includes(req.query.category)) { params.push(req.query.category); where.push(`category = $${params.length}`); }
+    const Q = req.query;
+
+    const k = cleanText(Q.kebele, 100);
+    if (req.user.role !== "kebele_officer" && k && k !== "All") { params.push(k); where.push(`kebele = $${params.length}`); }
+    if (STATUSES.includes(Q.status)) { params.push(Q.status); where.push(`status = $${params.length}`); }
+    if (CATEGORIES.includes(Q.category)) { params.push(Q.category); where.push(`category = $${params.length}`); }
+    if (["Normal", "Urgent"].includes(Q.priority)) { params.push(Q.priority); where.push(`priority = $${params.length}`); }
+
+    const q = cleanText(Q.q, 100);
+    if (q) {
+      params.push(`%${q.replace(/[\\%_]/g, "\\$&")}%`);
+      const n = params.length;
+      where.push(`(title ILIKE $${n} OR description ILIKE $${n} OR tracking_no ILIKE $${n} OR location_detail ILIKE $${n})`);
+    }
+
+    const asg = cleanText(Q.assigned, 254).toLowerCase();
+    if (asg === "me") { params.push(req.user.email); where.push(`assigned_to = $${params.length}`); }
+    else if (asg === "unassigned") where.push("assigned_to = ''");
+    else if (asg && EMAIL_RE.test(asg)) { params.push(asg); where.push(`assigned_to = $${params.length}`); }
+
+    if (Q.overdue === "1" || Q.overdue === "true")
+      where.push(`due_date < CURRENT_DATE AND status NOT IN ('Resolved','Rejected')`);
+
+    const from = toDay(Q.from), to = toDay(Q.to);
+    if (from === undefined || to === undefined) return res.status(400).json({ error: "Dates must look like YYYY-MM-DD." });
+    if (from) { params.push(from); where.push(`created_at >= $${params.length}::date`); }
+    if (to) { params.push(to); where.push(`created_at < ($${params.length}::date + 1)`); }
+
+    const ORDER = {
+      urgent: "(priority='Urgent' AND status NOT IN ('Resolved','Rejected')) DESC, created_at DESC",
+      newest: "created_at DESC",
+      oldest: "created_at ASC",
+      due: "due_date ASC NULLS LAST, created_at DESC"
+    };
+    const orderBy = ORDER[Q.sort] || ORDER.urgent;
+
+    const limit = intParam(Q.limit, 25, 1, 100);
+    const page = intParam(Q.page, 1, 1, 100000);
+    const whereSql = where.join(" AND ");
+
+    const total = (await pool.query(`SELECT COUNT(*)::int n FROM citizen_reports WHERE ${whereSql}`, params)).rows[0].n;
+    const pages = Math.max(1, Math.ceil(total / limit));
+
+    const listParams = [...params, limit, (page - 1) * limit];
     const { rows } = await pool.query(
-      `SELECT id, tracking_no, category, kebele, location_detail, title, description, phone, priority, status,
-              assigned_dept, created_at, updated_at,
+      `SELECT id, tracking_no, category, kebele, location_detail, title, description, phone, email, priority, status,
+              assigned_dept, assigned_to, due_date, resolved_at, created_at, updated_at,
+              (due_date IS NOT NULL AND due_date < CURRENT_DATE AND status NOT IN ('Resolved','Rejected')) AS overdue,
               (SELECT COALESCE(array_agg(p.id ORDER BY p.id), '{}'::int[]) FROM report_photos p
                  WHERE p.report_id = citizen_reports.id) AS photo_ids
-       FROM citizen_reports WHERE ${where.join(" AND ")}
-       ORDER BY (priority='Urgent' AND status NOT IN ('Resolved','Rejected')) DESC, created_at DESC LIMIT 200`, params);
-    res.json({ reports: rows });
+       FROM citizen_reports WHERE ${whereSql}
+       ORDER BY ${orderBy}
+       LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`, listParams);
+
+    // Sector heads are read-only and do not see citizens' contact details.
+    const readOnly = req.user.role === "sector_head";
+    if (readOnly) rows.forEach(r => { r.phone = null; r.email = null; });
+    res.json({ reports: rows, page, limit, total, pages, readOnly });
   }));
 
+  // ---- staff: one report with its full history (including internal notes) ----
+  app.get("/api/citizen-reports/:id", requireAuth, requireViewer, wrap(async (req, res) => {
+    const params = [req.params.id];
+    const r = (await pool.query(`SELECT * FROM citizen_reports WHERE id=$1 AND ${scope(req.user, params)}`, params)).rows[0];
+    if (!r) return res.status(404).json({ error: "Report not found." });
+    const updates = (await pool.query(
+      "SELECT status, note, is_public, by_email, created_at FROM report_updates WHERE report_id=$1 ORDER BY id", [r.id])).rows;
+    const photos = (await pool.query("SELECT id FROM report_photos WHERE report_id=$1 ORDER BY id", [r.id])).rows.map(p => p.id);
+    if (req.user.role === "sector_head") { r.phone = null; r.email = null; }
+    res.json({ report: { ...r, photo_ids: photos, updates } });
+  }));
+
+  // ---- staff: update status, assignment, due date ----
   app.patch("/api/citizen-reports/:id", requireAuth, requireStaff, wrap(async (req, res) => {
     const params = [req.params.id];
     const cur = (await pool.query(`SELECT * FROM citizen_reports WHERE id=$1 AND ${scope(req.user, params)}`, params)).rows[0];
     if (!cur) return res.status(404).json({ error: "Report not found." });
     const b = req.body || {};
+
     const status = b.status === undefined ? cur.status : b.status;
     if (!STATUSES.includes(status)) return res.status(400).json({ error: "Invalid status." });
     const note = cleanText(b.note, 1000);
     if (status === "Rejected" && !note) return res.status(400).json({ error: "A reason is required to reject a report." });
+    if (status === "On hold" && status !== cur.status && !note) return res.status(400).json({ error: "Say why the report is on hold." });
     const dept = b.assignedDept === undefined ? cur.assigned_dept : cleanText(b.assignedDept, 80);
+
+    // Assignment: admin can assign any staff email; a kebele officer can assign only to themselves (or clear it).
+    let assignedTo = cur.assigned_to;
+    if (b.assignedTo !== undefined) {
+      const want = cleanText(b.assignedTo, 254).toLowerCase();
+      if (want && !EMAIL_RE.test(want)) return res.status(400).json({ error: "Assignee must be an email address." });
+      if (want && req.user.role !== "admin" && want !== String(req.user.email).toLowerCase())
+        return res.status(403).json({ error: "You can assign reports only to yourself." });
+      assignedTo = want;
+    }
+
+    // Due date: YYYY-MM-DD or empty to clear.
+    let dueDate = cur.due_date;
+    if (b.dueDate !== undefined) {
+      const d = toDay(b.dueDate);
+      if (d === undefined) return res.status(400).json({ error: "Due date must look like YYYY-MM-DD." });
+      dueDate = d;
+    }
 
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      await client.query("UPDATE citizen_reports SET status=$2, assigned_dept=$3, updated_at=now() WHERE id=$1", [cur.id, status, dept]);
+      await client.query(
+        `UPDATE citizen_reports
+            SET status=$2, assigned_dept=$3, assigned_to=$4, due_date=$5::date,
+                resolved_at = CASE WHEN $2 = 'Resolved' THEN COALESCE(resolved_at, now()) ELSE NULL END,
+                updated_at=now()
+          WHERE id=$1`,
+        [cur.id, status, dept, assignedTo, dueDate]);
       if (note || status !== cur.status)
         await client.query("INSERT INTO report_updates (report_id,status,note,is_public,by_email) VALUES ($1,$2,$3,$4,$5)",
           [cur.id, status, note, b.public !== false, req.user.email]);
+      if (assignedTo !== cur.assigned_to)
+        await client.query("INSERT INTO report_updates (report_id,status,note,is_public,by_email) VALUES ($1,$2,$3,false,$4)",
+          [cur.id, status, assignedTo ? `Assigned to ${assignedTo}` : "Assignment cleared", req.user.email]);
       await client.query("COMMIT");
     } catch (err) { await client.query("ROLLBACK").catch(() => {}); throw err; } finally { client.release(); }
     res.json({ ok: true });
   }));
 
-  app.get("/api/citizen-reports-stats", requireAuth, requireStaff, wrap(async (req, res) => {
+  app.get("/api/citizen-reports-stats", requireAuth, requireViewer, wrap(async (req, res) => {
     const p1 = [], w = scope(req.user, p1);
     const tot = (await pool.query(
       `SELECT COUNT(*)::int total,
               COUNT(*) FILTER (WHERE status NOT IN ('Resolved','Rejected'))::int open,
-              COUNT(*) FILTER (WHERE status='Resolved')::int resolved
+              COUNT(*) FILTER (WHERE status='Resolved')::int resolved,
+              COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status NOT IN ('Resolved','Rejected'))::int overdue,
+              COUNT(*) FILTER (WHERE assigned_to = '' AND status NOT IN ('Resolved','Rejected'))::int unassigned
        FROM citizen_reports WHERE ${w}`, p1)).rows[0];
     const p2 = [], w2 = scope(req.user, p2, "r.kebele");
     const avg = (await pool.query(
@@ -253,7 +380,13 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
     const perKebele = (await pool.query(
       `SELECT kebele, COUNT(*)::int received, COUNT(*) FILTER (WHERE status='Resolved')::int resolved
        FROM citizen_reports WHERE ${w3} GROUP BY kebele ORDER BY kebele`, p3)).rows;
-    res.json({ ...tot, avgResolutionDays: avg == null ? null : Number(Number(avg).toFixed(1)), perKebele });
+    const p4 = [], w4 = scope(req.user, p4);
+    const byStatus = (await pool.query(
+      `SELECT status, COUNT(*)::int n FROM citizen_reports WHERE ${w4} GROUP BY status`, p4)).rows;
+    const p5 = [], w5 = scope(req.user, p5);
+    const byCategory = (await pool.query(
+      `SELECT category, COUNT(*)::int n FROM citizen_reports WHERE ${w5} GROUP BY category ORDER BY n DESC`, p5)).rows;
+    res.json({ ...tot, avgResolutionDays: avg == null ? null : Number(Number(avg).toFixed(1)), perKebele, byStatus, byCategory });
   }));
 
   // ---- announcements ----
@@ -315,13 +448,13 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
     res.json({ ok: true });
   }));
 
-  // ---- staff: view a report photo (same kebele scope as the inbox) ----
-  app.get("/api/citizen-report-photos/:id", requireAuth, requireStaff, wrap(async (req, res) => {
+  // ---- staff: view a report photo (same scope as the inbox) ----
+  app.get("/api/citizen-report-photos/:id", requireAuth, requireViewer, wrap(async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) return res.status(400).json({ error: "Invalid id." });
     const r = (await pool.query(
       `SELECT p.data, c.kebele FROM report_photos p JOIN citizen_reports c ON c.id = p.report_id WHERE p.id = $1`, [id])).rows[0];
-    if (!r || (req.user.role !== "admin" && r.kebele !== req.user.kebele)) return res.status(404).json({ error: "Not found." });
+    if (!r || (req.user.role === "kebele_officer" && r.kebele !== req.user.kebele)) return res.status(404).json({ error: "Not found." });
     res.set({ "Content-Type": "image/jpeg", "Cache-Control": "private, max-age=3600", "X-Content-Type-Options": "nosniff" });
     res.send(r.data);
   }));

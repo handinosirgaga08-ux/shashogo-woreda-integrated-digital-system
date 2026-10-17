@@ -138,7 +138,7 @@
           <input id="recordId" type="hidden">
           <div class="grid">
             <label><span data-i18n="name"></span> *<input id="name" required maxlength="120"></label>
-            <label><span data-i18n="category"></span> *<input id="category" required maxlength="80" list="categoryList" data-ph="categoryPh"></label>
+            <label><span data-i18n="category"></span> *<select id="category" required></select></label>
             <label><span data-i18n="kebele"></span><select id="kebele"></select></label>
             <label><span data-i18n="phone"></span><input id="phone" type="tel" maxlength="40" inputmode="tel" placeholder="09XXXXXXXX"></label>
             <label><span data-i18n="status"></span>
@@ -149,7 +149,6 @@
               </select>
             </label>
           </div>
-          <datalist id="categoryList"></datalist>
 
           <h3 class="section-title" data-i18n="personalWork"></h3>
           <div class="grid">
@@ -354,6 +353,7 @@ const T = {
     tabRecords: "Records", tabReports: "Reports & Evaluation", tabSetup: "Setup",
     addRecord: "Add record", editRecord: "Edit record", formHint: "Create and update local administrative records.",
     newRecord: "New record", name: "Name", category: "Category", categoryPh: "e.g. Citizen, Business",
+    newCategory: "New category",
     kebele: "Kebele", phone: "Phone", status: "Status", notes: "Notes",
     Active: "Active", Pending: "Pending", Inactive: "Inactive",
     personalWork: "Personal and work details", idNumber: "ID number", birthDate: "Date of birth",
@@ -393,6 +393,7 @@ const T = {
     tabRecords: "መዝገቦች", tabReports: "ሪፖርት እና ግምገማ", tabSetup: "ማዋቀሪያ",
     addRecord: "መዝገብ ጨምር", editRecord: "መዝገብ አርም", formHint: "የአካባቢ አስተዳደር መዝገቦችን ይፍጠሩ እና ያሻሽሉ።",
     newRecord: "አዲስ መዝገብ", name: "ስም", category: "ምድብ", categoryPh: "ለምሳሌ፡ ነዋሪ፣ ንግድ",
+    newCategory: "አዲስ ምድብ",
     kebele: "ቀበሌ", phone: "ስልክ", status: "ሁኔታ", notes: "ማስታወሻ",
     Active: "ንቁ", Pending: "በመጠባበቅ ላይ", Inactive: "ንቁ ያልሆነ",
     personalWork: "የግል እና የሥራ ዝርዝር", idNumber: "የመታወቂያ ቁጥር", birthDate: "የትውልድ ቀን",
@@ -590,6 +591,27 @@ function applyScopeLock() {
 // ---------------- Records ----------------
 const EXTRA_FIELDS = ["idNumber", "birthDate", "maritalStatus", "hireDate", "sector", "workLine", "department", "profession", "jobRole", "experienceYears"];
 
+// Category dropdown: defaults + every category already used + "New category".
+const DEFAULT_CATEGORIES = ["Citizen", "Business", "Organization", "Government office", "Other"];
+let lastCategory = "";
+function fillCategorySelect() {
+  const el = $("category"), prev = el.value;
+  const cats = [...new Set([...DEFAULT_CATEGORIES, ...uniqueValues("category")])].sort((a, b) => a.localeCompare(b));
+  el.innerHTML = `<option value="">${esc(t("selectOne"))}</option>` +
+    cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("") +
+    `<option value="__new__">+ ${esc(t("newCategory"))}</option>`;
+  el.value = prev;
+}
+$("category").addEventListener("change", e => {
+  if (e.target.value !== "__new__") { lastCategory = e.target.value; return; }
+  const name = (prompt(t("newCategory") + ":") || "").trim().slice(0, 80);
+  if (name) {
+    if (![...e.target.options].some(o => o.value === name))
+      e.target.insertAdjacentHTML("beforeend", `<option value="${esc(name)}">${esc(name)}</option>`);
+    e.target.value = name; lastCategory = name;
+  } else e.target.value = lastCategory;
+});
+
 async function loadRecords() {
   try {
     const q = $("search").value.trim();
@@ -658,9 +680,11 @@ window.editRecord = id => {
   const r = records.find(x => x.id === id);
   if (!r) return;
   $("recordId").value = r.id;
-  ["name", "category", "phone", "status", "notes", ...EXTRA_FIELDS.filter(f => f !== "sector")].forEach(f => {
+  ["name", "phone", "status", "notes", ...EXTRA_FIELDS.filter(f => f !== "sector")].forEach(f => {
     $(f).value = r[f] ?? "";
   });
+  setSelectValue("category", r.category);
+  lastCategory = r.category || "";
   setSelectValue("kebele", r.kebele);
   setSelectValue("sector", r.sector);
   applyScopeLock();
@@ -683,6 +707,8 @@ function clearForm() {
   $("recordForm").reset();
   $("recordId").value = "";
   $("status").value = "Active";
+  lastCategory = "";
+  fillCategorySelect();
   fillListSelect("kebele");
   fillListSelect("sector");
   applyScopeLock();
@@ -722,7 +748,7 @@ function populateRecordSelects() {
   fillFilter("fKebele", "allKebeles", uniqueValues("kebele"));
   fillFilter("fStatus", "allStatuses", ["Active", "Pending", "Inactive"], true);
 
-  $("categoryList").innerHTML = uniqueValues("category").map(v => `<option value="${esc(v)}">`).join("");
+  fillCategorySelect();
 
   const options = records.slice()
     .sort((a, b) => a.name.localeCompare(b.name))

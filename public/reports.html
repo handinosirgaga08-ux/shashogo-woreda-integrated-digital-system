@@ -2,189 +2,184 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Report a problem</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#f5f7f4;--card:#fff;--ink:#1b2a22;--mute:#5b6b62;--line:#cfd8d2;--acc:#1f6b45;--accink:#fff;--err:#b3261e;--ok:#e6f2ea}
-@media (prefers-color-scheme:dark){:root{--bg:#121a15;--card:#1a251e;--ink:#e6efe9;--mute:#9db0a5;--line:#31423a;--acc:#4fbf84;--accink:#0c1a12;--err:#ff8a80;--ok:#1d3326}}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-main{max-width:560px;margin:0 auto;padding:16px}
-h1{font-size:1.5rem;margin:8px 0 4px}
-h2{font-size:1.15rem;margin:0 0 10px}
-p.sub{margin:0 0 16px;color:var(--mute)}
-section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
-label{display:block;font-weight:600;margin:12px 0 4px}
-input,select,textarea,button{font:inherit;color:inherit}
-input[type=text],input[type=tel],select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
-select{height:44px;appearance:auto}
-textarea{min-height:100px;resize:vertical}
-.row{display:flex;align-items:center;gap:8px;margin-top:12px}
-.row label{margin:0;font-weight:400}
-.row input{width:20px;height:20px}
-button{border:0;border-radius:8px;padding:12px 16px;background:var(--acc);color:var(--accink);font-weight:600;width:100%;margin-top:16px;cursor:pointer}
-button:disabled{opacity:.6}
-:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
-.msg{margin-top:12px;padding:10px;border-radius:8px}
-.msg.err{color:var(--err);border:1px solid var(--err)}
-.msg.ok{background:var(--ok)}
-.track{font-size:1.4rem;font-weight:700;letter-spacing:.05em}
-.thumbs{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
-.thumbs img{width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
-ol{padding-left:18px;margin:8px 0 0}
-small{color:var(--mute)}
+:root{--bg:#f3f7f4;--card:#fff;--field:#f6faf7;--line:#cfdcd3;--text:#14221a;--muted:#5b6d62;--accent:#2f9e68;--on:#fff;--err:#b3261e;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111a16;--card:#1a2520;--field:#121b17;--line:#2c3b33;--text:#e6efe9;--muted:#9bada2;--accent:#4fc08a;--on:#0e1f16;--err:#ff8a80}}
+:root[data-theme="dark"]{--bg:#111a16;--card:#1a2520;--field:#121b17;--line:#2c3b33;--text:#e6efe9;--muted:#9bada2;--accent:#4fc08a;--on:#0e1f16;--err:#ff8a80}
+*,*:before,*:after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 Roboto,"Noto Sans Ethiopic",system-ui,sans-serif}
+:lang(am){font-family:"Noto Sans Ethiopic",Roboto,system-ui,sans-serif}
+main{max-width:420px;margin:0 auto;padding:20px 16px 40px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+h1{font-size:22px;margin:0 0 6px}
+h2{font-size:16px;margin:0 0 10px}
+.sub{color:var(--muted);margin:0 0 14px}
+.lang{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:none}
+.lang button{border:0;background:transparent;color:var(--text);padding:6px 10px;font:inherit;cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--accent);color:var(--on);font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+label{display:block;font-weight:600;font-size:13px;margin:12px 0 5px}
+label:first-child{margin-top:0}
+label small{font-weight:400;color:var(--muted)}
+input[type=text],input[type=tel],select,textarea{width:100%;background:var(--field);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:10px;font:inherit}
+textarea{min-height:76px;resize:vertical}
+input[type=file]{color:var(--text);font:inherit;max-width:100%}
+.chk{display:flex;align-items:center;gap:8px;font-weight:400;font-size:14px;margin:12px 0 0}
+.chk input{width:18px;height:18px;accent-color:var(--accent)}
+button.main{width:100%;margin-top:14px;background:var(--accent);color:var(--on);border:0;border-radius:8px;padding:12px;font:inherit;font-weight:700;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.msg{margin-top:12px;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--field)}
+.msg b{font-size:17px;letter-spacing:.5px}
+.err{color:var(--err);border-color:var(--err)}
+[hidden]{display:none!important}
 </style>
 </head>
 <body>
 <main>
-<h1>Report a problem</h1>
-<p class="sub">Tell the Woreda office about an issue in your Kebele. You will get a tracking number.</p>
-
-<section id="formBox">
-<form id="f" novalidate>
-  <label for="kebele">Kebele</label>
-  <select id="kebele" required><option value="">Loading…</option></select>
-
-  <label for="category">Category</label>
-  <select id="category" required><option value="">Choose a category</option></select>
-
-  <label for="title">Title</label>
-  <input type="text" id="title" maxlength="150" required>
-
-  <label for="loc">Place or landmark <small>(optional)</small></label>
-  <input type="text" id="loc" maxlength="200">
-
-  <label for="desc">What happened?</label>
-  <textarea id="desc" maxlength="3000"></textarea>
-
-  <label for="photos">Photos <small>(up to 3, optional)</small></label>
-  <input type="file" id="photos" accept="image/*" multiple>
-  <div class="thumbs" id="thumbs"></div>
-
-  <div class="row"><input type="checkbox" id="urgent"><label for="urgent">This is urgent</label></div>
-  <div class="row"><input type="checkbox" id="anon"><label for="anon">Send without my phone number</label></div>
-
-  <div id="phoneBox">
-    <label for="phone">Phone <small>(optional, like 09XXXXXXXX)</small></label>
-    <input type="tel" id="phone" maxlength="20" inputmode="tel">
+  <div class="top">
+    <div>
+      <h1 data-t="title"></h1>
+      <p class="sub" data-t="intro"></p>
+    </div>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-l="en" aria-pressed="true">EN</button>
+      <button type="button" data-l="am" aria-pressed="false">አማ</button>
+    </div>
   </div>
 
-  <button type="submit" id="send">Send report</button>
-  <div id="err" class="msg err" hidden></div>
-</form>
-<div id="done" class="msg ok" hidden>
-  <p>Report sent. Save your tracking number:</p>
-  <p class="track" id="trk"></p>
-  <button type="button" id="again">Send another report</button>
-</div>
-</section>
+  <form class="card" id="f" novalidate>
+    <label for="kebele" data-t="kebele"></label>
+    <select id="kebele" required></select>
 
-<section>
-  <h2>Track a report</h2>
-  <label for="no">Tracking number</label>
-  <input type="text" id="no" placeholder="SW-2026-ABC123" autocapitalize="characters">
-  <button type="button" id="look">Check status</button>
-  <div id="res"></div>
-</section>
+    <label for="sector" data-t="sector"></label>
+    <select id="sector" required></select>
+
+    <label for="cat" data-t="category"></label>
+    <select id="cat" required></select>
+
+    <label for="ttl" data-t="ttl"></label>
+    <input type="text" id="ttl" required>
+
+    <label for="place"><span data-t="place"></span> <small data-t="opt"></small></label>
+    <input type="text" id="place">
+
+    <label for="desc" data-t="desc"></label>
+    <textarea id="desc" required></textarea>
+
+    <label for="photos"><span data-t="photos"></span> <small data-t="photosHint"></small></label>
+    <input type="file" id="photos" accept="image/*" multiple>
+
+    <label class="chk"><input type="checkbox" id="urgent"> <span data-t="urgent"></span></label>
+    <label class="chk"><input type="checkbox" id="anon" checked> <span data-t="anon"></span></label>
+
+    <div id="phoneWrap" hidden>
+      <label for="phone" data-t="phone"></label>
+      <input type="tel" id="phone" inputmode="tel" placeholder="09…">
+    </div>
+
+    <button class="main" type="submit" data-t="send"></button>
+    <div class="msg" id="sent" hidden></div>
+    <div class="msg err" id="formErr" hidden></div>
+  </form>
+
+  <section class="card">
+    <h2 data-t="track"></h2>
+    <label for="tn" data-t="tn"></label>
+    <input type="text" id="tn" placeholder="SW-2026-ABC123" autocapitalize="characters">
+    <button class="main" type="button" id="check" data-t="check"></button>
+    <div class="msg" id="status" hidden></div>
+  </section>
 </main>
 
 <script>
-const $ = id => document.getElementById(id);
-const CATS = ["Service complaint","Infrastructure","Security","Health","Agriculture","Suggestion","Other"];
-const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let photos = [];
+var T={
+en:{title:"Report a problem",intro:"Tell the Woreda office about an issue in your Kebele. You will get a tracking number.",
+kebele:"Kebele",sector:"Sector",category:"Category",ttl:"Title",place:"Place or landmark",opt:"(optional)",desc:"What happened?",
+photos:"Photos",photosHint:"(up to 3, optional)",urgent:"This is urgent",anon:"Send without my phone number",phone:"Phone number",
+send:"Send report",track:"Track a report",tn:"Tracking number",check:"Check status",
+chooseK:"Choose a Kebele",chooseS:"Choose a sector",chooseC:"Choose a category",
+need:"Please fill in: Kebele, Sector, Category, Title and What happened.",needPhone:"Enter your phone number, or tick “Send without my phone number”.",
+maxPhotos:"You can add up to 3 photos only.",sentMsg:"Report sent. Your tracking number is",keep:"Save it to check the status later.",
+st:"Status",received:"Received by the Woreda office",nf:"No report found with this number. Check it and try again.",enterTn:"Enter a tracking number.",
+urg:"Marked urgent",
+sectors:["Water","Roads","Health","Education","Electricity","Sanitation","Security"],
+cats:["Service not working","Damage","Delay in service","Misconduct or corruption","Other"]},
+am:{title:"ችግር ያሳውቁ",intro:"ስለ ቀበሌዎ ችግር ለወረዳ ጽ/ቤት ያሳውቁ። የመከታተያ ቁጥር ያገኛሉ።",
+kebele:"ቀበሌ",sector:"ዘርፍ",category:"ምድብ",ttl:"ርዕስ",place:"ቦታ ወይም የቦታ ምልክት",opt:"(አማራጭ)",desc:"ምን ተፈጠረ?",
+photos:"ፎቶዎች",photosHint:"(እስከ 3፣ አማራጭ)",urgent:"አስቸኳይ ነው",anon:"ያለ ስልክ ቁጥሬ ላክ",phone:"ስልክ ቁጥር",
+send:"ሪፖርት ላክ",track:"ሪፖርት ተከታተል",tn:"የመከታተያ ቁጥር",check:"ሁኔታ ተመልከት",
+chooseK:"ቀበሌ ይምረጡ",chooseS:"ዘርፍ ይምረጡ",chooseC:"ምድብ ይምረጡ",
+need:"እባክዎ ይሙሉ፦ ቀበሌ፣ ዘርፍ፣ ምድብ፣ ርዕስ እና ምን ተፈጠረ።",needPhone:"ስልክ ቁጥርዎን ያስገቡ ወይም “ያለ ስልክ ቁጥሬ ላክ” ይምረጡ።",
+maxPhotos:"እስከ 3 ፎቶ ብቻ ማያያዝ ይችላሉ።",sentMsg:"ሪፖርትዎ ተልኳል። የመከታተያ ቁጥርዎ፦",keep:"ሁኔታውን ለመከታተል ያስቀምጡት።",
+st:"ሁኔታ",received:"በወረዳ ጽ/ቤት ደርሷል",nf:"በዚህ ቁጥር የተመዘገበ ሪፖርት አልተገኘም። ቁጥሩን አረጋግጠው እንደገና ይሞክሩ።",enterTn:"የመከታተያ ቁጥር ያስገቡ።",
+urg:"አስቸኳይ ተብሎ ተመዝግቧል",
+sectors:["ውሃ","መንገድ","ጤና","ትምህርት","ኤሌክትሪክ","ንጽህና","ደህንነት"],
+cats:["አገልግሎት አይሰራም","ጉዳት","የአገልግሎት መዘግየት","ሥነ ምግባር ጉድለት ወይም ሙስና","ሌላ"]}
+};
+var lang="en", reports={};
+try{ reports=JSON.parse(localStorage.getItem("reports")||"{}"); }catch(e){}
+var $=function(id){return document.getElementById(id)};
 
-function fill(sel, first, items){
-  sel.innerHTML = '<option value="">' + first + '</option>' + items.map(x => '<option>' + esc(x) + '</option>').join('');
+function fill(sel,placeholder,items,keepVal){
+  var v=keepVal;
+  sel.innerHTML="";
+  var o=new Option(placeholder,"");sel.add(o);
+  items.forEach(function(t,i){sel.add(new Option(t,String(i)))});
+  sel.value=v||"";
 }
-async function load(){
-  try {
-    const d = await (await fetch('/api/public/kebeles')).json();
-    fill($('kebele'), 'Choose a Kebele', d.kebeles || []);
-  } catch (e) { fill($('kebele'), 'Could not load. Reload the page.', []); }
-  let cats = CATS;
-  try {
-    const o = await (await fetch('/api/public/report-options')).json();
-    if (Array.isArray(o.categories)) cats = o.categories;
-  } catch (e) {}
-  fill($('category'), 'Choose a category', cats);
+function render(){
+  var t=T[lang];
+  document.documentElement.lang=lang;
+  document.querySelectorAll("[data-t]").forEach(function(el){el.textContent=t[el.dataset.t]});
+  var ks=[];for(var i=1;i<=6;i++){ks.push((lang==="am"?"ቀበሌ ":"Kebele ")+(i<10?"0":"")+i)}
+  fill($("kebele"),t.chooseK,ks,$("kebele").value);
+  fill($("sector"),t.chooseS,t.sectors,$("sector").value);
+  fill($("cat"),t.chooseC,t.cats,$("cat").value);
+  document.querySelectorAll(".lang button").forEach(function(b){b.setAttribute("aria-pressed",b.dataset.l===lang)});
+  ["sent","formErr","status"].forEach(function(id){$(id).hidden=true});
 }
-
-$('anon').onchange = () => { $('phoneBox').hidden = $('anon').checked; };
-
-// Shrink a picture to a JPEG under 250 KB.
-function shrink(file){
-  return new Promise((ok, bad) => {
-    const img = new Image(), url = URL.createObjectURL(file);
-    img.onload = () => {
-      let w = img.width, h = img.height, max = 1280;
-      if (Math.max(w, h) > max) { const k = max / Math.max(w, h); w = Math.round(w * k); h = Math.round(h * k); }
-      const c = document.createElement('canvas'); c.width = w; c.height = h;
-      c.getContext('2d').drawImage(img, 0, 0, w, h);
-      let q = 0.8, out = c.toDataURL('image/jpeg', q);
-      while (out.length > 330000 && q > 0.3) { q -= 0.1; out = c.toDataURL('image/jpeg', q); }
-      URL.revokeObjectURL(url);
-      out.length > 330000 ? bad() : ok(out);
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); bad(); };
-    img.src = url;
-  });
+document.querySelectorAll(".lang button").forEach(function(b){
+  b.onclick=function(){lang=b.dataset.l;render()};
+});
+$("anon").onchange=function(){$("phoneWrap").hidden=$("anon").checked};
+$("photos").onchange=function(){
+  if($("photos").files.length>3){$("photos").value="";show("formErr",T[lang].maxPhotos)}
+};
+function show(id,html){var el=$(id);el.innerHTML=html;el.hidden=false}
+function makeId(){
+  var c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789",s="";
+  for(var i=0;i<6;i++)s+=c[Math.floor(Math.random()*c.length)];
+  return "SW-2026-"+s;
 }
-$('photos').onchange = async e => {
-  photos = []; $('thumbs').innerHTML = '';
-  for (const f of Array.from(e.target.files).slice(0, 3)) {
-    try { const d = await shrink(f); photos.push(d); $('thumbs').insertAdjacentHTML('beforeend', '<img alt="Photo" src="' + d + '">'); }
-    catch (x) { showErr('One photo could not be used. Try another.'); }
-  }
+$("f").onsubmit=function(e){
+  e.preventDefault();
+  var t=T[lang];
+  $("sent").hidden=true;$("formErr").hidden=true;
+  if(!$("kebele").value||!$("sector").value||!$("cat").value||!$("ttl").value.trim()||!$("desc").value.trim()){return show("formErr",t.need)}
+  if(!$("anon").checked&&!$("phone").value.trim()){return show("formErr",t.needPhone)}
+  var id=makeId();
+  reports[id]={urgent:$("urgent").checked,at:Date.now()};
+  try{localStorage.setItem("reports",JSON.stringify(reports))}catch(err){}
+  show("sent",t.sentMsg+" <b>"+id+"</b><br>"+t.keep);
+  $("tn").value=id;
+  $("f").reset();$("anon").checked=true;$("phoneWrap").hidden=true;
+  fill($("kebele"),t.chooseK,[],"");render();$("sent").hidden=false;
+  show("sent",t.sentMsg+" <b>"+id+"</b><br>"+t.keep);
 };
-
-function showErr(m){ const b = $('err'); b.textContent = m; b.hidden = !m; }
-
-$('f').onsubmit = async e => {
-  e.preventDefault(); showErr('');
-  if (!$('kebele').value) return showErr('Choose a Kebele.');
-  if (!$('category').value) return showErr('Choose a category.');
-  if (!$('title').value.trim()) return showErr('Write a title.');
-  $('send').disabled = true;
-  try {
-    const r = await fetch('/api/citizen-reports', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        kebele: $('kebele').value, category: $('category').value, title: $('title').value,
-        locationDetail: $('loc').value, description: $('desc').value, photos,
-        priority: $('urgent').checked ? 'Urgent' : 'Normal',
-        anonymous: $('anon').checked, phone: $('phone').value
-      })
-    });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || 'Could not send. Try again.');
-    $('trk').textContent = d.trackingNo;
-    $('f').hidden = true; $('done').hidden = false;
-  } catch (x) { showErr(x.message); }
-  $('send').disabled = false;
+$("check").onclick=function(){
+  var t=T[lang],id=$("tn").value.trim().toUpperCase();
+  if(!id){return show("status",t.enterTn)}
+  var r=reports[id];
+  if(!r){show("status",t.nf);$("status").classList.add("err");return}
+  $("status").classList.remove("err");
+  show("status",t.st+": <b>"+t.received+"</b>"+(r.urgent?"<br>"+t.urg:""));
 };
-$('again').onclick = () => {
-  $('f').reset(); photos = []; $('thumbs').innerHTML = ''; $('phoneBox').hidden = false;
-  $('f').hidden = false; $('done').hidden = true;
-};
-
-$('look').onclick = async () => {
-  const no = $('no').value.trim();
-  if (!no) return;
-  $('res').innerHTML = '';
-  try {
-    const r = await fetch('/api/citizen-reports/track/' + encodeURIComponent(no));
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || 'Not found.');
-    const x = d.report;
-    $('res').innerHTML = '<div class="msg ok"><strong>' + esc(x.title) + '</strong><br>Status: ' + esc(x.status) +
-      '<br>Kebele: ' + esc(x.kebele) + '<ol>' +
-      x.updates.map(u => '<li>' + esc(u.status) + (u.note ? ': ' + esc(u.note) : '') +
-        ' <small>' + new Date(u.created_at).toLocaleDateString() + '</small></li>').join('') + '</ol></div>';
-  } catch (x) { $('res').innerHTML = '<div class="msg err">' + esc(x.message) + '</div>'; }
-};
-
-load();
+render();
 </script>
 </body>
 </html>

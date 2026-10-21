@@ -45,6 +45,7 @@ label.l small{font-weight:400;color:var(--muted)}
 .meta{font-size:12.5px;color:var(--muted)}
 .acts{display:flex;gap:8px;margin-top:8px}
 .btn{background:var(--accent);color:var(--on);border:0;border-radius:8px;padding:10px 14px;font:inherit;font-weight:600;cursor:pointer}
+.btn:disabled{opacity:.6;cursor:wait}
 .btn.sec{background:transparent;color:var(--text);border:1px solid var(--line);padding:6px 10px;font-weight:500;font-size:13px}
 .btn.full{width:100%;margin-top:16px;padding:12px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin-top:8px}
@@ -125,9 +126,10 @@ search:"Search announcements",allKf:"All Kebeles",allSf:"All sectors",
 tEn:"Title (English)",bEn:"Message (English)",tAm:"Title (Amharic)",bAm:"Message (Amharic)",
 toK:"Send to Kebeles",allK:"Whole Woreda (all Kebeles)",toS:"Sectors",allS:"All sectors",
 pri:"Priority",exp:"Valid until",opt:"(optional)",publish:"Publish announcement",
-note:"Office use. Add at least one language. Announcements are saved in this browser only until the page is connected to the Woreda server.",
+note:"Office use. Add at least one language. Only the Woreda admin can publish or delete announcements.",
 pNormal:"Normal",pImportant:"Important",pUrgent:"Urgent",
 needText:"Add a title and message in English or Amharic.",needK:"Choose at least one Kebele.",needS:"Choose at least one sector.",
+adminOnly:"Only the Woreda admin can do this. Please log in as admin.",saveFail:"Could not save. Please try again.",
 empty:"No announcements for this selection.",posted:"Posted",until:"Valid until",expired:"Expired",
 copy:"Copy",copied:"Copied",del:"Delete",confirmDel:"Delete this announcement?",wholeW:"Whole Woreda",
 sectors:["Water","Roads","Health","Education","Electricity","Sanitation","Security"],kb:"Kebele "},
@@ -136,9 +138,10 @@ search:"ማስታወቂያ ፈልግ",allKf:"ሁሉም ቀበሌዎች",allSf:"�
 tEn:"ርዕስ (እንግሊዝኛ)",bEn:"መልዕክት (እንግሊዝኛ)",tAm:"ርዕስ (አማርኛ)",bAm:"መልዕክት (አማርኛ)",
 toK:"የሚላክላቸው ቀበሌዎች",allK:"መላው ወረዳ (ሁሉም ቀበሌዎች)",toS:"ዘርፎች",allS:"ሁሉም ዘርፎች",
 pri:"ደረጃ",exp:"የሚያገለግለው እስከ",opt:"(አማራጭ)",publish:"ማስታወቂያ አውጣ",
-note:"ለጽ/ቤት አገልግሎት። ቢያንስ በአንድ ቋንቋ ይሙሉ። ገጹ ከወረዳው ሰርቨር እስኪገናኝ ድረስ ማስታወቂያዎች በዚህ ብራውዘር ብቻ ይቀመጣሉ።",
+note:"ለጽ/ቤት አገልግሎት። ቢያንስ በአንድ ቋንቋ ይሙሉ። ማስታወቂያ ማውጣትና መሰረዝ የሚችለው የወረዳ አስተዳዳሪ ብቻ ነው።",
 pNormal:"መደበኛ",pImportant:"ጠቃሚ",pUrgent:"አስቸኳይ",
 needText:"በእንግሊዝኛ ወይም በአማርኛ ርዕስና መልዕክት ያስገቡ።",needK:"ቢያንስ አንድ ቀበሌ ይምረጡ።",needS:"ቢያንስ አንድ ዘርፍ ይምረጡ።",
+adminOnly:"ይህን ማድረግ የሚችለው የወረዳ አስተዳዳሪ ብቻ ነው። እባክዎ በአስተዳዳሪነት ይግቡ።",saveFail:"ማስቀመጥ አልተቻለም። እባክዎ እንደገና ይሞክሩ።",
 empty:"ለዚህ ምርጫ ማስታወቂያ የለም።",posted:"የወጣው",until:"እስከ",expired:"ጊዜው አልፏል",
 copy:"ቅዳ",copied:"ተቀድቷል",del:"ሰርዝ",confirmDel:"ይህ ማስታወቂያ ይሰረዝ?",wholeW:"መላው ወረዳ",
 sectors:["ውሃ","መንገድ","ጤና","ትምህርት","ኤሌክትሪክ","ንጽህና","ደህንነት"],kb:"ቀበሌ "}
@@ -146,15 +149,15 @@ sectors:["ውሃ","መንገድ","ጤና","ትምህርት","ኤሌክትሪክ"
 var lang="en",items=[],$=function(i){return document.getElementById(i)};
 function today(){return new Date().toISOString().slice(0,10)}
 function kName(i){return T[lang].kb+(i+1<10?"0":"")+(i+1)}
-try{items=JSON.parse(localStorage.getItem("woreda_ann")||"null")||[]}catch(e){}
-if(!items.length){
-  items=[
-   {id:1,pri:"urgent",k:[1,2],s:[0],en:{t:"Water supply interruption",b:"Water will be off in Kebele 02 and 03 on Monday from 8:00 to 17:00 for pipe repair. Please store water in advance."},am:{t:"የውሃ አቅርቦት መቋረጥ",b:"በቀበሌ 02 እና 03 ሰኞ ከ2፡00 እስከ 11፡00 የቧንቧ ጥገና ስለሚደረግ ውሃ ይቋረጣል። አስቀድመው ውሃ ያስቀምጡ።"},at:today(),exp:""},
-   {id:2,pri:"important",k:[],s:[2],en:{t:"Free vaccination week",b:"Children under 5 can receive free vaccines at every Kebele health post this week. Bring your child's card."},am:{t:"ነፃ የክትባት ሳምንት",b:"ከ5 ዓመት በታች ያሉ ልጆች በሁሉም ቀበሌ ጤና ኬላ ነፃ ክትባት ያገኛሉ። የልጅዎን ካርድ ይዘው ይምጡ።"},at:today(),exp:""},
-   {id:3,pri:"normal",k:[],s:[],en:{t:"Office hours for the Woreda administration",b:"The Woreda office is open Monday to Friday, 2:30 to 11:30 local time. Report problems through the Report a problem page."},am:{t:"የወረዳ አስተዳደር የሥራ ሰዓት",b:"የወረዳ ጽ/ቤት ከሰኞ እስከ ዓርብ ከ2፡30 እስከ 11፡30 ክፍት ነው። ችግሮችን በ“ችግር ያሳውቁ” ገጽ በኩል ያሳውቁ።"},at:today(),exp:""}
-  ];
+
+// Announcements now live on the Woreda server (PostgreSQL), not in this browser.
+function load(){
+  return fetch("/api/announcements",{credentials:"same-origin"})
+    .then(function(r){if(!r.ok)throw 0;return r.json()})
+    .then(function(d){items=Array.isArray(d)?d:[];renderList()})
+    .catch(function(){items=[];renderList()});
 }
-function save(){try{localStorage.setItem("woreda_ann",JSON.stringify(items))}catch(e){}}
+
 function mk(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
 function pick(a){var o=a[lang];return o&&o.t?o:(a[lang==="en"?"am":"en"]||{t:"",b:""})}
 
@@ -199,7 +202,16 @@ function renderList(){
       try{navigator.clipboard.writeText(txt).then(function(){cp.textContent=t.copied})}catch(e){}
     };
     var dl=mk("button","btn sec",t.del);dl.type="button";
-    dl.onclick=function(){if(confirm(t.confirmDel)){items=items.filter(function(x){return x.id!==a.id});save();renderList()}};
+    dl.onclick=function(){
+      if(!confirm(t.confirmDel))return;
+      fetch("/api/announcements/"+a.id,{method:"DELETE",credentials:"same-origin"})
+        .then(function(r){
+          if(r.status===401||r.status===403){alert(t.adminOnly);return}
+          if(!r.ok){alert(t.saveFail);return}
+          return load();
+        })
+        .catch(function(){alert(t.saveFail)});
+    };
     ac.appendChild(cp);ac.appendChild(dl);c.appendChild(ac);L.appendChild(c);
   });
 }
@@ -231,20 +243,31 @@ function tab(post){
 }
 $("tabBoard").onclick=function(){tab(false)};$("tabPost").onclick=function(){tab(true)};
 $("publish").onclick=function(){
-  var t=T[lang],er=$("err");er.hidden=true;
+  var t=T[lang],er=$("err"),btn=$("publish");er.hidden=true;
   var te=$("tEn").value.trim(),be=$("bEn").value.trim(),ta=$("tAm").value.trim(),ba=$("bAm").value.trim();
   function fail(m){er.textContent=m;er.hidden=false}
   if(!((te&&be)||(ta&&ba)))return fail(t.needText);
   var k=$("allK").checked?[]:chosen($("kList")),s=$("allS").checked?[]:chosen($("sList"));
   if(!$("allK").checked&&!k.length)return fail(t.needK);
   if(!$("allS").checked&&!s.length)return fail(t.needS);
-  items.push({id:Date.now(),pri:$("pri").value,k:k,s:s,en:{t:te,b:be},am:{t:ta,b:ba},at:today(),exp:$("exp").value});
-  save();
-  ["tEn","bEn","tAm","bAm","exp"].forEach(function(i){$(i).value=""});
-  $("allK").checked=true;$("allS").checked=true;$("kList").hidden=true;$("sList").hidden=true;
-  render();tab(false);
+  var body={pri:$("pri").value,k:k,s:s,en:{t:te,b:be},am:{t:ta,b:ba},exp:$("exp").value||null};
+  btn.disabled=true;
+  fetch("/api/announcements",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
+    .then(function(r){
+      if(r.status===401||r.status===403)throw new Error(t.adminOnly);
+      if(!r.ok)throw new Error(t.saveFail);
+      return load();
+    })
+    .then(function(){
+      ["tEn","bEn","tAm","bAm","exp"].forEach(function(i){$(i).value=""});
+      $("allK").checked=true;$("allS").checked=true;$("kList").hidden=true;$("sList").hidden=true;
+      render();tab(false);
+    })
+    .catch(function(e){fail(e.message||t.saveFail)})
+    .then(function(){btn.disabled=false});
 };
 render();
+load();
 </script>
 </body>
 </html>

@@ -9,8 +9,8 @@
 <link rel="apple-touch-icon" href="/icon-192.png">
 <meta name="theme-color" content="#2272ab">
 <style>
-:root{--navy:#10223a;--blue:#1d7fc4;--ink:#16212e;--muted:#55657a;--bg:#f3f6f9;--card:#fff;--line:#dde5ee}
-@media (prefers-color-scheme:dark){:root{--ink:#e8eef5;--muted:#9fb0c3;--bg:#0c1522;--card:#14233a;--line:#243a57}}
+:root{--navy:#10223a;--blue:#1d7fc4;--ink:#16212e;--muted:#55657a;--bg:#f3f6f9;--card:#fff;--line:#dde5ee;--bad:#b3261e;--warn:#a15c00}
+@media (prefers-color-scheme:dark){:root{--ink:#e8eef5;--muted:#9fb0c3;--bg:#0c1522;--card:#14233a;--line:#243a57;--bad:#ff9a92;--warn:#ffc46b}}
 *{box-sizing:border-box}
 body{margin:0;font-family:"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.6}
 header{background:var(--navy);color:#fff;padding:16px 20px}
@@ -41,12 +41,26 @@ h3{font-size:1.2rem;margin:0 0 6px}
 .avatar{flex:none;width:64px;height:64px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:700;font-size:1.3rem}
 .dev p{margin:2px 0;color:var(--muted);font-size:.93rem}
 footer{text-align:center;color:var(--muted);font-size:.85rem;padding:20px}
+/* Announcements */
+.ann{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px}
+.ann.emergency{border-left:5px solid var(--bad)}
+.ann.notice{border-left:5px solid var(--warn)}
+.ann .tagline{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:.8rem;color:var(--muted);margin-bottom:4px}
+.ann .type{font-weight:700}
+.ann.emergency .type{color:var(--bad)}
+.ann.notice .type{color:var(--warn)}
+.ann h4{margin:2px 0 4px;font-size:1.02rem}
+.ann .am{margin:0 0 4px;font-size:.95rem;color:var(--muted)}
+.ann p{margin:0;white-space:pre-wrap;font-size:.93rem}
+.ann-empty{color:var(--muted);padding:6px 0}
+.more{display:inline-block;margin-top:6px;color:var(--blue);font-weight:600;text-decoration:none}
+.more:hover,.more:focus-visible{text-decoration:underline}
 </style>
 </head>
 <body>
 <header>
   <h1>Shashogo Woreda Integrated Digital System</h1>
-  <nav><a href="/">Home</a><a href="#about">About</a><a href="#contact">Contact</a><a href="/admin_panel.html">Admin Panel</a></nav>
+  <nav><a href="/">Home</a><a href="#announcements">Announcements</a><a href="#about">About</a><a href="#contact">Contact</a><a href="/admin_panel.html">Admin Panel</a></nav>
 </header>
 
 <main>
@@ -55,6 +69,13 @@ footer{text-align:center;color:var(--muted);font-size:.85rem;padding:20px}
     <h2>Welcome to SWIDS</h2>
     <p>The official digital portal for Shashogo Woreda administrative records, built to make local government services faster, organized and transparent.</p>
   </div>
+
+  <section id="announcements">
+    <h3>Woreda Announcements</h3>
+    <p class="lead">Official notices from the Woreda administration.</p>
+    <div id="annList"><div class="ann-empty">Loading announcements…</div></div>
+    <a class="more" href="/woreda-announcements">See all announcements →</a>
+  </section>
 
   <section id="about">
     <h3>About the Software</h3>
@@ -102,5 +123,43 @@ footer{text-align:center;color:var(--muted);font-size:.85rem;padding:20px}
 </main>
 
 <footer>© 2026 Shashogo Woreda Integrated Digital System (SWIDS). All rights reserved.</footer>
+
+<script>
+// Latest announcements from the Woreda server (public, no login needed).
+(function () {
+  var box = document.getElementById("annList");
+  function mk(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+  function day(s) {
+    var d = new Date(s); if (isNaN(d)) return "";
+    return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2);
+  }
+  function list(url, key) {
+    return fetch(url).then(function (r) { return r.ok ? r.json() : {}; }).then(function (d) { return d[key] || []; }).catch(function () { return []; });
+  }
+  function show(items) {
+    box.innerHTML = "";
+    if (!items.length) { box.appendChild(mk("div", "ann-empty", "No announcements right now.")); return; }
+    items.sort(function (a, b) { return (a.type === "Emergency" ? 0 : 1) - (b.type === "Emergency" ? 0 : 1); });
+    items.slice(0, 5).forEach(function (a) {
+      var cls = a.type === "Emergency" ? " emergency" : a.type === "Service notice" ? " notice" : "";
+      var c = mk("article", "ann" + cls);
+      var tl = mk("div", "tagline");
+      tl.appendChild(mk("span", "type", a.type));
+      tl.appendChild(mk("span", null, a.audience));
+      tl.appendChild(mk("span", null, day(a.publish_at)));
+      c.appendChild(tl);
+      var title = a.title_en || a.title_am, body = a.body_en || a.body_am;
+      c.appendChild(mk("h4", null, title));
+      if (a.title_en && a.title_am) { var am = mk("div", "am", a.title_am); am.lang = "am"; c.appendChild(am); }
+      if (body) c.appendChild(mk("p", null, body));
+      box.appendChild(c);
+    });
+  }
+  Promise.all([list("/api/public/kebeles", "kebeles"), list("/api/public/sectors", "sectors")]).then(function (r) {
+    var aud = ["Whole Woreda"].concat(r[0], r[1]);
+    return list("/api/announcements?audiences=" + encodeURIComponent(aud.join("|")), "announcements");
+  }).then(show);
+})();
+</script>
 </body>
 </html>

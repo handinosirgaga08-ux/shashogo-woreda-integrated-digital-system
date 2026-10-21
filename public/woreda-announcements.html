@@ -34,7 +34,6 @@ label.l small{font-weight:400;color:var(--muted)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:10px}
 .card.urgent{border-left:5px solid var(--bad)}
 .card.important{border-left:5px solid var(--warn)}
-.card.expired{opacity:.6}
 .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}
 .badge{font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--okbg);color:var(--ok)}
 .badge.important{background:var(--warnbg);color:var(--warn)}
@@ -48,9 +47,6 @@ label.l small{font-weight:400;color:var(--muted)}
 .btn:disabled{opacity:.6;cursor:wait}
 .btn.sec{background:transparent;color:var(--text);border:1px solid var(--line);padding:6px 10px;font-weight:500;font-size:13px}
 .btn.full{width:100%;margin-top:16px;padding:12px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin-top:8px}
-.chk{display:flex;align-items:center;gap:8px;font-size:14px}
-.chk input{width:18px;height:18px;accent-color:var(--accent)}
 .empty{text-align:center;color:var(--muted);padding:30px 10px}
 .note{font-size:12.5px;color:var(--muted);margin-top:14px}
 .err{color:var(--bad);margin-top:10px;font-weight:500}
@@ -70,7 +66,7 @@ label.l small{font-weight:400;color:var(--muted)}
     </div>
     <nav role="tablist">
       <button role="tab" id="tabBoard" aria-selected="true" data-t="board"></button>
-      <button role="tab" id="tabPost" aria-selected="false" data-t="post"></button>
+      <button role="tab" id="tabPost" aria-selected="false" data-t="post" hidden></button>
     </nav>
   </div>
 </header>
@@ -80,32 +76,27 @@ label.l small{font-weight:400;color:var(--muted)}
     <div class="bar">
       <select id="fK" aria-label="Kebele"></select>
       <select id="fS" aria-label="Sector"></select>
-      <input class="full" type="text" id="q" data-ph="search">
+      <input class="full" type="text" id="q">
     </div>
     <div id="list"></div>
   </section>
 
   <section id="vPost" hidden>
     <div class="card">
-      <label class="l" for="tEn"><span data-t="tEn"></span></label>
-      <input type="text" id="tEn">
+      <label class="l" for="tEn" data-t="tEn"></label>
+      <input type="text" id="tEn" maxlength="150">
       <label class="l" for="bEn" data-t="bEn"></label>
-      <textarea id="bEn"></textarea>
+      <textarea id="bEn" maxlength="3000"></textarea>
       <label class="l" for="tAm" data-t="tAm"></label>
-      <input type="text" id="tAm" lang="am">
+      <input type="text" id="tAm" lang="am" maxlength="150">
       <label class="l" for="bAm" data-t="bAm"></label>
-      <textarea id="bAm" lang="am"></textarea>
+      <textarea id="bAm" lang="am" maxlength="3000"></textarea>
 
-      <label class="l" data-t="toK"></label>
-      <label class="chk"><input type="checkbox" id="allK" checked> <span data-t="allK"></span></label>
-      <div class="grid" id="kList" hidden></div>
+      <label class="l" for="aud" data-t="pAud"></label>
+      <select id="aud"></select>
 
-      <label class="l" data-t="toS"></label>
-      <label class="chk"><input type="checkbox" id="allS" checked> <span data-t="allS"></span></label>
-      <div class="grid" id="sList" hidden></div>
-
-      <label class="l" for="pri" data-t="pri"></label>
-      <select id="pri"></select>
+      <label class="l" for="type" data-t="pType"></label>
+      <select id="type"></select>
 
       <label class="l" for="exp"><span data-t="exp"></span> <small data-t="opt"></small></label>
       <input type="date" id="exp">
@@ -118,156 +109,175 @@ label.l small{font-weight:400;color:var(--muted)}
 </main>
 
 <script>
-// ---- Edit these lists to match your Woreda ----
-var KEBELES=6;
+var WHOLE="Whole Woreda",ALLK="All Kebeles",ALLS="All Sectors";
+var TYPES=["General","Emergency","Event","Service notice"];
 var T={
 en:{title:"Woreda announcements",sub:"Official notices for all Kebeles and sectors",board:"Announcements",post:"Post announcement",
 search:"Search announcements",allKf:"All Kebeles",allSf:"All sectors",
 tEn:"Title (English)",bEn:"Message (English)",tAm:"Title (Amharic)",bAm:"Message (Amharic)",
-toK:"Send to Kebeles",allK:"Whole Woreda (all Kebeles)",toS:"Sectors",allS:"All sectors",
-pri:"Priority",exp:"Valid until",opt:"(optional)",publish:"Publish announcement",
-note:"Office use. Add at least one language. Only the Woreda admin can publish or delete announcements.",
-pNormal:"Normal",pImportant:"Important",pUrgent:"Urgent",
-needText:"Add a title and message in English or Amharic.",needK:"Choose at least one Kebele.",needS:"Choose at least one sector.",
-adminOnly:"Only the Woreda admin can do this. Please log in as admin.",saveFail:"Could not save. Please try again.",
-empty:"No announcements for this selection.",posted:"Posted",until:"Valid until",expired:"Expired",
-copy:"Copy",copied:"Copied",del:"Delete",confirmDel:"Delete this announcement?",wholeW:"Whole Woreda",
-sectors:["Water","Roads","Health","Education","Electricity","Sanitation","Security"],kb:"Kebele "},
+pAud:"Send to",pType:"Type",grpK:"Kebeles",grpS:"Sectors",
+exp:"Valid until",opt:"(optional)",publish:"Publish announcement",
+note:"Office use. Only the Woreda admin can post or delete. The English title is required; Amharic is optional.",
+types:{"General":"General","Emergency":"Emergency","Event":"Event","Service notice":"Service notice"},
+needTitle:"Add an English title.",adminOnly:"Only the Woreda admin can do this. Please log in as admin.",saveFail:"Could not save. Please try again.",
+empty:"No announcements for this selection.",posted:"Posted",until:"Valid until",
+copy:"Copy",copied:"Copied",del:"Delete",confirmDel:"Delete this announcement?",wholeW:"Whole Woreda"},
 am:{title:"የወረዳ ማስታወቂያዎች",sub:"ለሁሉም ቀበሌዎችና ዘርፎች ይፋዊ ማስታወቂያ",board:"ማስታወቂያዎች",post:"ማስታወቂያ ለጥፍ",
 search:"ማስታወቂያ ፈልግ",allKf:"ሁሉም ቀበሌዎች",allSf:"ሁሉም ዘርፎች",
 tEn:"ርዕስ (እንግሊዝኛ)",bEn:"መልዕክት (እንግሊዝኛ)",tAm:"ርዕስ (አማርኛ)",bAm:"መልዕክት (አማርኛ)",
-toK:"የሚላክላቸው ቀበሌዎች",allK:"መላው ወረዳ (ሁሉም ቀበሌዎች)",toS:"ዘርፎች",allS:"ሁሉም ዘርፎች",
-pri:"ደረጃ",exp:"የሚያገለግለው እስከ",opt:"(አማራጭ)",publish:"ማስታወቂያ አውጣ",
-note:"ለጽ/ቤት አገልግሎት። ቢያንስ በአንድ ቋንቋ ይሙሉ። ማስታወቂያ ማውጣትና መሰረዝ የሚችለው የወረዳ አስተዳዳሪ ብቻ ነው።",
-pNormal:"መደበኛ",pImportant:"ጠቃሚ",pUrgent:"አስቸኳይ",
-needText:"በእንግሊዝኛ ወይም በአማርኛ ርዕስና መልዕክት ያስገቡ።",needK:"ቢያንስ አንድ ቀበሌ ይምረጡ።",needS:"ቢያንስ አንድ ዘርፍ ይምረጡ።",
-adminOnly:"ይህን ማድረግ የሚችለው የወረዳ አስተዳዳሪ ብቻ ነው። እባክዎ በአስተዳዳሪነት ይግቡ።",saveFail:"ማስቀመጥ አልተቻለም። እባክዎ እንደገና ይሞክሩ።",
-empty:"ለዚህ ምርጫ ማስታወቂያ የለም።",posted:"የወጣው",until:"እስከ",expired:"ጊዜው አልፏል",
-copy:"ቅዳ",copied:"ተቀድቷል",del:"ሰርዝ",confirmDel:"ይህ ማስታወቂያ ይሰረዝ?",wholeW:"መላው ወረዳ",
-sectors:["ውሃ","መንገድ","ጤና","ትምህርት","ኤሌክትሪክ","ንጽህና","ደህንነት"],kb:"ቀበሌ "}
+pAud:"የሚላክለት",pType:"ዓይነት",grpK:"ቀበሌዎች",grpS:"ዘርፎች",
+exp:"የሚያገለግለው እስከ",opt:"(አማራጭ)",publish:"ማስታወቂያ አውጣ",
+note:"ለጽ/ቤት አገልግሎት። ማስታወቂያ ማውጣትና መሰረዝ የሚችለው የወረዳ አስተዳዳሪ ብቻ ነው። የእንግሊዝኛ ርዕስ ግዴታ ነው፤ አማርኛ አማራጭ ነው።",
+types:{"General":"አጠቃላይ","Emergency":"አስቸኳይ","Event":"ዝግጅት","Service notice":"የአገልግሎት ማሳሰቢያ"},
+needTitle:"የእንግሊዝኛ ርዕስ ያስገቡ።",adminOnly:"ይህን ማድረግ የሚችለው የወረዳ አስተዳዳሪ ብቻ ነው። እባክዎ በአስተዳዳሪነት ይግቡ።",saveFail:"ማስቀመጥ አልተቻለም። እባክዎ እንደገና ይሞክሩ።",
+empty:"ለዚህ ምርጫ ማስታወቂያ የለም።",posted:"የወጣው",until:"እስከ",
+copy:"ቅዳ",copied:"ተቀድቷል",del:"ሰርዝ",confirmDel:"ይህ ማስታወቂያ ይሰረዝ?",wholeW:"መላው ወረዳ"}
 };
-var lang="en",items=[],$=function(i){return document.getElementById(i)};
-function today(){return new Date().toISOString().slice(0,10)}
-function kName(i){return T[lang].kb+(i+1<10?"0":"")+(i+1)}
+var lang="en",items=[],kebeles=[],sectors=[],isAdmin=false,$=function(i){return document.getElementById(i)};
 
-// Announcements now live on the Woreda server (PostgreSQL), not in this browser.
+function mk(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
+function day(s){var d=new Date(s);if(isNaN(d))return "";return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2)}
+function pick(a){
+  var en={t:a.title_en||"",b:a.body_en||""},am={t:a.title_am||"",b:a.body_am||""};
+  var o=lang==="am"?am:en,f=lang==="am"?en:am;
+  return o.t?o:f;
+}
+function audLabel(a){var t=T[lang];return a===WHOLE?t.wholeW:a===ALLK?t.allKf:a===ALLS?t.allSf:a}
+function typeClass(ty){return ty==="Emergency"?"urgent":ty==="Service notice"?"important":""}
+
+function fillSel(sel,first,arr){
+  var v=sel.value;sel.innerHTML="";sel.add(new Option(first,""));
+  arr.forEach(function(n){sel.add(new Option(n,n))});
+  sel.value=v;if(sel.selectedIndex<0)sel.selectedIndex=0;
+}
+function fillType(){
+  var s=$("type"),v=s.value||"General",t=T[lang];s.innerHTML="";
+  TYPES.forEach(function(x){s.add(new Option(t.types[x],x))});
+  s.value=v;
+}
+function fillAud(){
+  var s=$("aud"),v=s.value||WHOLE,t=T[lang];s.innerHTML="";
+  [[WHOLE,t.wholeW],[ALLK,t.allKf],[ALLS,t.allSf]].forEach(function(p){s.add(new Option(p[1],p[0]))});
+  if(kebeles.length){var g=mk("optgroup");g.label=t.grpK;kebeles.forEach(function(n){g.appendChild(new Option(n,n))});s.appendChild(g)}
+  if(sectors.length){var g2=mk("optgroup");g2.label=t.grpS;sectors.forEach(function(n){g2.appendChild(new Option(n,n))});s.appendChild(g2)}
+  s.value=v;if(s.selectedIndex<0)s.selectedIndex=0;
+}
+
+// Announcements come from the Woreda server (PostgreSQL). Anyone can read.
 function load(){
-  return fetch("/api/announcements",{credentials:"same-origin"})
+  var fk=$("fK").value,fs=$("fS").value,aud=[WHOLE];
+  if(fk||fs){if(fk)aud.push(fk);if(fs)aud.push(fs)}
+  else aud=aud.concat(kebeles,sectors);
+  return fetch("/api/announcements?audiences="+encodeURIComponent(aud.join("|")),{credentials:"same-origin"})
     .then(function(r){if(!r.ok)throw 0;return r.json()})
-    .then(function(d){items=Array.isArray(d)?d:[];renderList()})
+    .then(function(d){items=d.announcements||[];renderList()})
     .catch(function(){items=[];renderList()});
 }
 
-function mk(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
-function pick(a){var o=a[lang];return o&&o.t?o:(a[lang==="en"?"am":"en"]||{t:"",b:""})}
-
-function fillSel(sel,first,arr,val){sel.innerHTML="";sel.add(new Option(first,""));arr.forEach(function(t,i){sel.add(new Option(t,String(i)))});sel.value=val||""}
-function checks(box,names,pre){box.innerHTML="";names.forEach(function(n,i){
-  var l=mk("label","chk"),c=document.createElement("input");c.type="checkbox";c.value=i;
-  l.appendChild(c);l.appendChild(mk("span",null,n));box.appendChild(l)})}
-function chosen(box){return Array.prototype.map.call(box.querySelectorAll("input:checked"),function(c){return +c.value})}
-
 function renderList(){
-  var t=T[lang],fk=$("fK").value,fs=$("fS").value,q=$("q").value.trim().toLowerCase(),L=$("list");
+  var t=T[lang],q=$("q").value.trim().toLowerCase(),L=$("list");
   L.innerHTML="";
-  var rank={urgent:0,important:1,normal:2};
   var shown=items.filter(function(a){
-    if(fk!==""&&a.k.length&&a.k.indexOf(+fk)<0)return false;
-    if(fs!==""&&a.s.length&&a.s.indexOf(+fs)<0)return false;
-    var o=pick(a);
-    if(q&&(o.t+" "+o.b).toLowerCase().indexOf(q)<0)return false;
-    return true;
+    if(!q)return true;
+    var o=pick(a);return (o.t+" "+o.b).toLowerCase().indexOf(q)>=0;
   }).sort(function(a,b){
-    var ea=a.exp&&a.exp<today(),eb=b.exp&&b.exp<today();
-    if(ea!==eb)return ea?1:-1;
-    return rank[a.pri]-rank[b.pri]||b.id-a.id;
+    var ea=a.type==="Emergency"?0:1,eb=b.type==="Emergency"?0:1;
+    return ea-eb; // Emergency first; server already sorts newest first
   });
   if(!shown.length){L.appendChild(mk("div","empty",t.empty));return}
   shown.forEach(function(a){
-    var o=pick(a),ex=a.exp&&a.exp<today();
-    var c=mk("article","card "+a.pri+(ex?" expired":""));
+    var o=pick(a),cls=typeClass(a.type);
+    var c=mk("article","card "+cls);
     var r=mk("div","row");
-    r.appendChild(mk("span","badge "+a.pri,t["p"+a.pri[0].toUpperCase()+a.pri.slice(1)]));
-    if(ex)r.appendChild(mk("span","badge gray",t.expired));
-    r.appendChild(mk("span","badge gray",a.k.length?a.k.map(function(i){return kName(i)}).join(", "):t.wholeW));
-    r.appendChild(mk("span","badge gray",a.s.length?a.s.map(function(i){return t.sectors[i]}).join(", "):t.allSf));
+    r.appendChild(mk("span","badge "+cls,t.types[a.type]||a.type));
+    r.appendChild(mk("span","badge gray",audLabel(a.audience)));
     c.appendChild(r);
     c.appendChild(mk("h3",null,o.t));
-    c.appendChild(mk("p",null,o.b));
-    c.appendChild(mk("div","meta",t.posted+": "+a.at+(a.exp?"  |  "+t.until+": "+a.exp:"")));
+    if(o.b)c.appendChild(mk("p",null,o.b));
+    c.appendChild(mk("div","meta",t.posted+": "+day(a.publish_at)+(a.expires_at?"  |  "+t.until+": "+day(a.expires_at):"")));
     var ac=mk("div","acts");
     var cp=mk("button","btn sec",t.copy);cp.type="button";
     cp.onclick=function(){
       var txt=o.t+"\n\n"+o.b;
       try{navigator.clipboard.writeText(txt).then(function(){cp.textContent=t.copied})}catch(e){}
     };
-    var dl=mk("button","btn sec",t.del);dl.type="button";
-    dl.onclick=function(){
-      if(!confirm(t.confirmDel))return;
-      fetch("/api/announcements/"+a.id,{method:"DELETE",credentials:"same-origin"})
-        .then(function(r){
-          if(r.status===401||r.status===403){alert(t.adminOnly);return}
-          if(!r.ok){alert(t.saveFail);return}
-          return load();
-        })
-        .catch(function(){alert(t.saveFail)});
-    };
-    ac.appendChild(cp);ac.appendChild(dl);c.appendChild(ac);L.appendChild(c);
+    ac.appendChild(cp);
+    if(isAdmin){
+      var dl=mk("button","btn sec",t.del);dl.type="button";
+      dl.onclick=function(){
+        if(!confirm(t.confirmDel))return;
+        fetch("/api/announcements/"+a.id,{method:"DELETE",credentials:"same-origin"})
+          .then(function(r){
+            if(r.status===401||r.status===403){alert(t.adminOnly);return}
+            if(!r.ok){alert(t.saveFail);return}
+            return load();
+          })
+          .catch(function(){alert(t.saveFail)});
+      };
+      ac.appendChild(dl);
+    }
+    c.appendChild(ac);L.appendChild(c);
   });
 }
+
 function render(){
-  var t=T[lang],fk=$("fK").value,fs=$("fS").value;
+  var t=T[lang];
   document.documentElement.lang=lang;
   document.querySelectorAll("[data-t]").forEach(function(e){e.textContent=t[e.dataset.t]});
   $("q").placeholder=t.search;
-  var ks=[];for(var i=0;i<KEBELES;i++)ks.push(kName(i));
-  fillSel($("fK"),t.allKf,ks,fk);fillSel($("fS"),t.allSf,t.sectors,fs);
-  var pk=chosen($("kList")),ps=chosen($("sList"));
-  checks($("kList"),ks);checks($("sList"),t.sectors);
-  pk.forEach(function(i){$("kList").querySelectorAll("input")[i].checked=true});
-  ps.forEach(function(i){$("sList").querySelectorAll("input")[i].checked=true});
-  var pv=$("pri").value||"normal";
-  $("pri").innerHTML="";
-  [["normal",t.pNormal],["important",t.pImportant],["urgent",t.pUrgent]].forEach(function(p){$("pri").add(new Option(p[1],p[0]))});
-  $("pri").value=pv;
+  fillSel($("fK"),t.allKf,kebeles);
+  fillSel($("fS"),t.allSf,sectors);
+  fillType();fillAud();
   document.querySelectorAll(".lang button").forEach(function(b){b.setAttribute("aria-pressed",b.dataset.l===lang)});
+  $("tabPost").hidden=!isAdmin;
+  if(!isAdmin&&!$("vPost").hidden)tab(false);
   renderList();
 }
+
 document.querySelectorAll(".lang button").forEach(function(b){b.onclick=function(){lang=b.dataset.l;render()}});
-["fK","fS"].forEach(function(i){$(i).onchange=renderList});$("q").oninput=renderList;
-$("allK").onchange=function(){$("kList").hidden=$("allK").checked};
-$("allS").onchange=function(){$("sList").hidden=$("allS").checked};
+["fK","fS"].forEach(function(i){$(i).onchange=load});
+$("q").oninput=renderList;
 function tab(post){
   $("vBoard").hidden=post;$("vPost").hidden=!post;
   $("tabBoard").setAttribute("aria-selected",!post);$("tabPost").setAttribute("aria-selected",post);
 }
-$("tabBoard").onclick=function(){tab(false)};$("tabPost").onclick=function(){tab(true)};
+$("tabBoard").onclick=function(){tab(false)};
+$("tabPost").onclick=function(){tab(true)};
+
 $("publish").onclick=function(){
   var t=T[lang],er=$("err"),btn=$("publish");er.hidden=true;
   var te=$("tEn").value.trim(),be=$("bEn").value.trim(),ta=$("tAm").value.trim(),ba=$("bAm").value.trim();
   function fail(m){er.textContent=m;er.hidden=false}
-  if(!((te&&be)||(ta&&ba)))return fail(t.needText);
-  var k=$("allK").checked?[]:chosen($("kList")),s=$("allS").checked?[]:chosen($("sList"));
-  if(!$("allK").checked&&!k.length)return fail(t.needK);
-  if(!$("allS").checked&&!s.length)return fail(t.needS);
-  var body={pri:$("pri").value,k:k,s:s,en:{t:te,b:be},am:{t:ta,b:ba},exp:$("exp").value||null};
+  if(!te)return fail(t.needTitle);
+  var exp=$("exp").value;
+  var body={titleEn:te,bodyEn:be,titleAm:ta,bodyAm:ba,type:$("type").value,audience:$("aud").value,
+    expiresAt:exp?new Date(exp+"T23:59:59").toISOString():null};
   btn.disabled=true;
   fetch("/api/announcements",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
     .then(function(r){
-      if(r.status===401||r.status===403)throw new Error(t.adminOnly);
-      if(!r.ok)throw new Error(t.saveFail);
-      return load();
+      return r.json().catch(function(){return {}}).then(function(d){
+        if(r.status===401||r.status===403)throw new Error(t.adminOnly);
+        if(!r.ok)throw new Error(d.error||t.saveFail);
+      });
     })
     .then(function(){
       ["tEn","bEn","tAm","bAm","exp"].forEach(function(i){$(i).value=""});
-      $("allK").checked=true;$("allS").checked=true;$("kList").hidden=true;$("sList").hidden=true;
-      render();tab(false);
+      $("aud").value=WHOLE;$("type").value="General";
+      return load();
     })
+    .then(function(){tab(false)})
     .catch(function(e){fail(e.message||t.saveFail)})
     .then(function(){btn.disabled=false});
 };
+
+// Start: show the page, then load the lists, find out if the visitor is the admin, and load the announcements.
 render();
-load();
+Promise.all([
+  fetch("/api/public/kebeles").then(function(r){return r.json()}).then(function(d){kebeles=d.kebeles||[]}).catch(function(){}),
+  fetch("/api/public/sectors").then(function(r){return r.json()}).then(function(d){sectors=d.sectors||[]}).catch(function(){}),
+  fetch("/api/me",{credentials:"same-origin"}).then(function(r){return r.ok?r.json():null})
+    .then(function(d){isAdmin=!!(d&&d.user&&d.user.role==="admin")}).catch(function(){})
+]).then(function(){render();return load()});
 </script>
 </body>
 </html>

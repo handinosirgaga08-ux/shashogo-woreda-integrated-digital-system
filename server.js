@@ -58,7 +58,18 @@ app.use("/api/citizen-reports", express.json({ limit: "2mb" }));
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, "public"), { extensions: ["html"], index: false }));
-app.get("/", (req, res) => res.sendFile(path.join(__dirname, "public", "home.html")));
+app.get("/", (req, res) => {
+  fs.readFile(path.join(__dirname, "public", "home.html"), "utf8", (err, html) => {
+    if (err) return res.status(500).send("Page not found");
+    const tag = '<script src="/news-home.js"></script>';
+    if (!html.includes("news-home.js")) {
+      html = /<\/body>/i.test(html)
+        ? html.replace(/<\/body>/i, tag + "</body>")
+        : html + tag;
+    }
+    res.type("html").send(html);
+  });
+});
 app.get("/manifest.json", (req, res) => res.sendFile(path.join(__dirname, "manifest.json")));
 app.get("/icon-192.png", (req, res) => res.sendFile(path.join(__dirname, "icon-192.png")));
 app.get("/icon-512.png", (req, res) => res.sendFile(path.join(__dirname, "icon-512.png")));

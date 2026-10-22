@@ -946,6 +946,8 @@ citizen.mount(app, { pool, wrap, requireAuth, cleanText });
 
 // ---------------- Routes: sector officer reports & head feedback ----------------
 officerReports.mount(app, { pool, wrap, requireAuth, cleanText });
+// ---------------- Routes: news ----------------
+require("./news").mount(app, { pool, wrap, requireAuth });
 
 // Unknown /api routes return JSON 404 instead of the HTML page below.
 app.use("/api", (req, res) => {

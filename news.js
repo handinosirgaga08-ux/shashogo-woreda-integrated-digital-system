@@ -9,15 +9,10 @@ module.exports.mount = function (app, { pool, wrap, requireAuth }) {
       mime TEXT, data BYTEA, created_at TIMESTAMPTZ DEFAULT now());
   `).catch(e => console.error('news tables:', e.message));
 
-  // Admin only. Works if requireAuth is middleware (req,res,next) or a role factory.
-  const isMw = requireAuth.length >= 3;
-  const base = isMw ? requireAuth : requireAuth('admin');
-  const adminOnly = (req, res, next) => base(req, res, err => {
+  // Admin only: server.js requireAuth is plain middleware and sets req.user
+  const adminOnly = (req, res, next) => requireAuth(req, res, err => {
     if (err) return next(err);
-    if (isMw) {
-      const u = req.user || (req.session && req.session.user) || {};
-      if (u.role !== 'admin') return res.status(403).json({ error: 'Administrator only' });
-    }
+    if (!req.user || req.user.role !== 'admin') return res.status(403).json({ error: 'Administrator only' });
     next();
   });
   const clean = (v, n) => String(v || '').trim().slice(0, n);

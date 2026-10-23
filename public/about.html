@@ -2,11 +2,99 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>About - SWIDS</title>
+  <meta name="theme-color" content="#2272ab">
+  <link rel="icon" type="image/png" href="/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#0b1520; --header:#0f2038; --card:#14213a; --border:#243552; --text:#e8eef7; --muted:#9fb0c7; --primary:#1c7cc4; }
+    * { box-sizing:border-box; }
+    html, body { margin:0; width:100%; max-width:100%; overflow-x:hidden; }
+    body { font-family:"Noto Sans Ethiopic",Roboto,Arial,sans-serif; background:var(--bg); color:var(--text); line-height:1.6; }
+    header { background:var(--header); padding:18px 16px; }
+    header h1 { margin:0 0 10px; font-size:20px; }
+    nav { display:flex; flex-wrap:wrap; gap:6px 16px; }
+    nav a { color:var(--text); text-decoration:none; font-size:15px; }
+    nav a:hover, nav a.active { text-decoration:underline; }
+    main { width:100%; max-width:900px; margin:0 auto; padding:20px 16px 40px; }
+    .hero { background:linear-gradient(135deg,#123a63,#1c7cc4); border-radius:18px; padding:28px 20px; text-align:center; }
+    .logo { display:inline-block; background:#1c7cc4; border:3px solid #4d9ad8; border-radius:20px; padding:18px 14px; font-weight:700; font-style:italic; font-size:20px; }
+    .hero h2 { margin:14px 0 8px; font-size:26px; }
+    .hero p { margin:0; color:#dbe8f6; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:20px; margin-top:16px; min-width:0; }
+    .card h3 { margin:0 0 8px; font-size:19px; }
+    .card p { margin:0 0 10px; color:var(--muted); }
+    .card p:last-child { margin-bottom:0; }
+    ul { margin:0; padding-left:20px; color:var(--muted); }
+    li { margin:6px 0; }
+    .contact a { color:#6db6f2; word-break:break-word; }
+    .back { display:inline-block; margin-top:20px; background:var(--primary); color:#fff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:600; }
+    footer { text-align:center; color:var(--muted); font-size:13px; padding:0 16px 24px; }
+    @media (min-width:700px) {
+      header { padding:20px 32px; }
+      header h1 { font-size:24px; }
+      .hero { padding:40px 32px; }
+    }
+  </style>
 </head>
 <body>
-  <h1>About SWIDS</h1>
-  <p>Information about the Shashogo Woreda Integrated Digital System goes here.</p>
-  <p><a href="/">Back to Home</a></p>
+  <header>
+    <h1>Shashogo Woreda Integrated Digital System</h1>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/about" class="active">About</a>
+      <a href="/contact">Contact</a>
+      <a href="/admin">Admin Panel</a>
+      <a href="/reports">Citizen Reports</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="logo">SWIDS</div>
+      <h2>About SWIDS</h2>
+      <p>The official digital portal for Shashogo Woreda administrative records, built to make local government services faster, organized and transparent.</p>
+    </section>
+
+    <section class="card">
+      <h3>Our purpose</h3>
+      <p>SWIDS brings the Woreda's records, reports and public notices into one secure online system, so residents and staff spend less time on paperwork and can see clearly how services are delivered.</p>
+    </section>
+
+    <section class="card">
+      <h3>What you can do here</h3>
+      <ul>
+        <li>Read official Woreda announcements and news.</li>
+        <li>Keep and manage administrative records by kebele and sector.</li>
+        <li>Submit annual plans and quarterly performance reports online.</li>
+        <li>Review reports and give feedback, and follow evaluations and results.</li>
+        <li>Send citizen reports to the Woreda administration.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h3>Who uses SWIDS</h3>
+      <ul>
+        <li><strong>Woreda administrators:</strong> manage kebeles, sectors and user accounts.</li>
+        <li><strong>Sector heads:</strong> review sector reports and give feedback.</li>
+        <li><strong>Sector officers:</strong> submit plans and performance reports.</li>
+        <li><strong>Kebele officers:</strong> manage records for their kebele.</li>
+        <li><strong>Residents:</strong> read announcements and send citizen reports.</li>
+      </ul>
+    </section>
+
+    <section class="card contact">
+      <h3>Need help?</h3>
+      <p>Phone: <a href="tel:0920992644">0920992644</a></p>
+      <p>Email: <a href="mailto:sirgagahandino946@gmail.com">sirgagahandino946@gmail.com</a></p>
+    </section>
+
+    <a class="back" href="/">Back to Home</a>
+  </main>
+
+  <footer>Shashogo Woreda Administration</footer>
 </body>
 </html>

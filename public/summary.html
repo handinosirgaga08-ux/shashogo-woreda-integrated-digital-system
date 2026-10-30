@@ -53,6 +53,11 @@
       <section class="card"><h3>By category</h3><div id="byCategory"></div></section>
       <section class="card"><h3>By kebele</h3><div id="byKebele"></div></section>
     </div>
+    <section class="card">
+      <h3>Monthly and quarterly reports</h3>
+      <p class="muted">Reports reviewed by the Woreda administration.</p>
+      <div id="periodic" style="margin-top:12px"></div>
+    </section>
     <p id="err" class="muted" style="margin-top:16px"></p>
   </main>
   <script>
@@ -68,6 +73,35 @@
         row.appendChild(a); row.appendChild(b); el.appendChild(row);
       });
     }
+    function addText(parent, tag, text, cls) {
+      var el = document.createElement(tag);
+      if (cls) el.className = cls;
+      el.textContent = text;
+      parent.appendChild(el);
+      return el;
+    }
+    fetch("/api/public/periodic-reports").then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function (d) {
+      var box = document.getElementById("periodic");
+      var list = d.reports || [];
+      if (!list.length) { addText(box, "p", "No reports published yet.", "muted"); return; }
+      list.forEach(function (r) {
+        var item = document.createElement("div");
+        item.style.cssText = "border-top:1px solid var(--border);padding:12px 0";
+        addText(item, "b", r.unit_name + " - " + r.period_type + " " + r.period_label);
+        addText(item, "p", r.summary, "muted").style.whiteSpace = "pre-wrap";
+        if (r.achievements) {
+          addText(item, "b", "Achievements").style.cssText = "display:block;margin-top:8px";
+          addText(item, "p", r.achievements, "muted").style.whiteSpace = "pre-wrap";
+        }
+        box.appendChild(item);
+      });
+    }).catch(function () {
+      document.getElementById("periodic").textContent = "Could not load reports.";
+    });
+
     fetch("/api/public/summary").then(function (r) {
       if (!r.ok) throw new Error("HTTP " + r.status);
       return r.json();

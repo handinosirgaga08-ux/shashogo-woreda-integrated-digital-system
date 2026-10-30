@@ -496,6 +496,16 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
     res.json({ reports: rows, unit });
   }));
 
+  // Public (no login): only reports the administrator has marked "Reviewed", and only
+  // the summary and achievements. Challenges, plans, feedback and staff emails stay private.
+  app.get("/api/public/periodic-reports", wrap(async (req, res) => {
+    const { rows } = await pool.query(
+      `SELECT unit_type, unit_name, period_type, period_label, summary, achievements
+       FROM periodic_reports WHERE status = 'Reviewed'
+       ORDER BY period_label DESC, unit_name LIMIT 100`);
+    res.json({ reports: rows });
+  }));
+
   app.post("/api/periodic-reports", requireAuth, wrap(async (req, res) => {
     const u = myUnit(req.user);
     if (!u) return res.status(403).json({ error: "Only kebele officers and sector heads with an assigned kebele or sector submit these reports." });

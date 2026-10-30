@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Public Summary - SWIDS</title>
+  <meta name="theme-color" content="#2272ab">
+  <link rel="icon" type="image/png" href="/icon-192.png">
+  <style>
+    :root { --bg:#0b1520; --header:#0f2038; --card:#14213a; --border:#243552; --text:#e8eef7; --muted:#9fb0c7; --primary:#1c7cc4; }
+    * { box-sizing:border-box; }
+    html, body { margin:0; width:100%; max-width:100%; overflow-x:hidden; }
+    body { font-family:Roboto,Arial,sans-serif; background:var(--bg); color:var(--text); line-height:1.6; }
+    header { background:var(--header); padding:18px 16px; }
+    header h1 { margin:0 0 10px; font-size:20px; }
+    nav { display:flex; flex-wrap:wrap; gap:6px 16px; }
+    nav a { color:var(--text); text-decoration:none; font-size:15px; }
+    nav a:hover, nav a.active { text-decoration:underline; }
+    main { width:100%; max-width:900px; margin:0 auto; padding:20px 16px 40px; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:20px; margin-top:16px; }
+    .card h2, .card h3 { margin:0 0 8px; }
+    .muted { color:var(--muted); margin:0; }
+    .stats { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-top:16px; }
+    .stat { background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:14px; text-align:center; }
+    .stat b { display:block; font-size:28px; color:#6db6f2; }
+    .row { display:flex; justify-content:space-between; gap:12px; padding:6px 0; border-bottom:1px solid var(--border); }
+    .row:last-child { border-bottom:0; }
+    .grid { display:grid; grid-template-columns:1fr; gap:16px; }
+    @media (min-width:700px) { .grid { grid-template-columns:1fr 1fr; } header { padding:20px 32px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Shashogo Woreda Integrated Digital System</h1>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/summary" class="active">Public Summary</a>
+      <a href="/reports">Citizen Reports</a>
+      <a href="/about">About</a>
+      <a href="/contact">Contact</a>
+    </nav>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Woreda summary</h2>
+      <p class="muted">Public overview of records across the Woreda. Totals only.</p>
+      <div class="stats">
+        <div class="stat"><b id="total">-</b>Total records</div>
+        <div class="stat"><b id="active">-</b>Active records</div>
+      </div>
+    </section>
+    <div class="grid">
+      <section class="card"><h3>By category</h3><div id="byCategory"></div></section>
+      <section class="card"><h3>By kebele</h3><div id="byKebele"></div></section>
+    </div>
+    <p id="err" class="muted" style="margin-top:16px"></p>
+  </main>
+  <script>
+    function fill(id, obj) {
+      var el = document.getElementById(id);
+      el.textContent = "";
+      var keys = Object.keys(obj || {});
+      if (!keys.length) { el.textContent = "No data yet."; return; }
+      keys.forEach(function (k) {
+        var row = document.createElement("div"); row.className = "row";
+        var a = document.createElement("span"); a.textContent = k;
+        var b = document.createElement("b"); b.textContent = obj[k];
+        row.appendChild(a); row.appendChild(b); el.appendChild(row);
+      });
+    }
+    fetch("/api/public/summary").then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function (d) {
+      document.getElementById("total").textContent = d.totalRecords;
+      document.getElementById("active").textContent = d.activeRecords;
+      fill("byCategory", d.byCategory);
+      fill("byKebele", d.byKebele);
+    }).catch(function () {
+      document.getElementById("err").textContent = "Could not load the summary. Please try again later.";
+    });
+  </script>
+</body>
+</html>

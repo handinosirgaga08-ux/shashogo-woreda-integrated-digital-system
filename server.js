@@ -905,6 +905,17 @@ app.get("/api/reports/summary", requireAuth, wrap(async (req, res) => {
   });
 }));
 
+// Public summary: aggregate counts only (no login). No names, record details or evaluations.
+app.get("/api/public/summary", wrap(async (req, res) => {
+  const recs = (await pool.query("SELECT category, status, kebele FROM records")).rows;
+  res.json({
+    totalRecords: recs.length,
+    activeRecords: recs.filter(r => r.status === "Active").length,
+    byCategory: countBy(recs, r => r.category),
+    byKebele: countBy(recs, r => r.kebele)
+  });
+}));
+
 app.get("/api/reports/export/records.csv", requireAuth, wrap(async (req, res) => {
   const params = [];
   const { rows } = await pool.query(

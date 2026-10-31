@@ -23,11 +23,13 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "change-me";
 const SESSION_SECRET = process.env.SESSION_SECRET || "dev-only-change-this-secret";
 const DATABASE_URL = process.env.DATABASE_URL;
 
-if (process.env.NODE_ENV === "production" && SESSION_SECRET === "dev-only-change-this-secret") {
-  throw new Error("SESSION_SECRET must be changed in production.");
+// FIX 1: these checks no longer depend on NODE_ENV, so weak defaults can
+// never run by accident (for example if NODE_ENV is forgotten on the host).
+if (SESSION_SECRET === "dev-only-change-this-secret" || SESSION_SECRET.length < 32) {
+  throw new Error("SESSION_SECRET must be set to a random value of 32+ characters.");
 }
-if (process.env.NODE_ENV === "production" && ADMIN_PASSWORD === "change-me") {
-  throw new Error("ADMIN_PASSWORD must be changed in production.");
+if (ADMIN_PASSWORD === "change-me" || ADMIN_PASSWORD.length < 8) {
+  throw new Error("ADMIN_PASSWORD must be changed (at least 8 characters).");
 }
 if (!DATABASE_URL) {
   throw new Error("DATABASE_URL is required (PostgreSQL connection string).");
@@ -39,6 +41,11 @@ const ADMIN_HASH = bcrypt.hashSync(ADMIN_PASSWORD, 10);
 const pool = new Pool({
   connectionString: DATABASE_URL,
   ssl: /localhost|127\.0\.0\.1|@dpg-[a-z0-9]+-a[:\/]/.test(DATABASE_URL) ? false : { rejectUnauthorized: false }
+});
+
+// FIX 2: a dropped idle database connection must not crash the server.
+pool.on("error", err => {
+  console.error("Idle database client error:", err.message);
 });
 
 app.disable("x-powered-by");
@@ -83,6 +90,26 @@ const loginLimiter = rateLimit({
   message: { error: "Too many login attempts. Try again later." }
 });
 
+// FIX 4: rate limits for the open (no login) endpoints.
+const publicLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Try again later." }
+});
+const submitLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many submissions. Try again later." }
+});
+app.use("/api/public", publicLimiter);
+// Assumes citizens submit with POST /api/citizen-reports. If your
+// citizen-reports.js uses a different path, change it here.
+app.post("/api/citizen-reports", submitLimiter);
+
 // Catches errors from async routes so the server never crashes.
 const wrap = fn => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(err => {
@@ -109,7 +136,14 @@ function readSession(req) {
   const match = raw.match(/(?:^|;\s*)swids_session=([^;]+)/);
   if (!match) return null;
 
-  const [payload, signature] = decodeURIComponent(match[1]).split(".");
+  // FIX 3: a malformed cookie now returns "not signed in" instead of a 500 error.
+  let decoded;
+  try {
+    decoded = decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+  const [payload, signature] = decoded.split(".");
   if (!payload || !signature) return null;
 
   const a = Buffer.from(signature);
@@ -544,13 +578,16 @@ function sendCsv(res, filename, csv) {
   res.send("\uFEFF" + csv);
 }
 
-function countBy(list, fn) {
-  const counts = {};
-  for (const item of list) {
-    const key = fn(item) || "Unspecified";
-    counts[key] = (counts[key] || 0) + 1;
-  }
-  return counts;
+// FIX 5: counts are computed inside PostgreSQL (GROUP BY) instead of loading
+// every row into memory. Only called with fixed table/column names from this
+// file, never with user input.
+async function groupCount(table, col, where, params) {
+  const { rows } = await pool.query(
+    `SELECT COALESCE(NULLIF(btrim(${col}), ''), 'Unspecified') AS k, COUNT(*)::int AS n
+       FROM ${table} WHERE ${where} GROUP BY 1`,
+    params
+  );
+  return Object.fromEntries(rows.map(r => [r.k, r.n]));
 }
 
 // ---------------- Routes: health & auth ----------------
@@ -577,9 +614,11 @@ app.post("/api/login", loginLimiter, wrap(async (req, res) => {
   if (!valid) return res.status(401).json({ error: "Invalid email or password." });
 
   const token = makeSessionToken(email);
+  // "Secure" is added whenever the request arrived over HTTPS (works behind
+  // Render thanks to "trust proxy"), not only when NODE_ENV is "production".
   res.setHeader(
     "Set-Cookie",
-    `swids_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=28800${process.env.NODE_ENV === "production" ? "; Secure" : ""}`
+    `swids_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=28800${req.secure ? "; Secure" : ""}`
   );
   const user = await loadUser(email);
   res.json({ ok: true, user });
@@ -757,6 +796,10 @@ app.put("/api/users/:id", requireAuth, requireAdmin, wrap(async (req, res) => {
 // ---------------- Routes: records ----------------
 
 app.get("/api/records", requireAuth, wrap(async (req, res) => {
+  // Returns at most 500 records per request. Use ?limit= and ?offset= to page.
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 500, 1), 500);
+  const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+
   const params = [cleanText(req.query.q, 100)];
   const scope = scopeClause(req.user, params);
   const { rows } = await pool.query(
@@ -765,7 +808,8 @@ app.get("/api/records", requireAuth, wrap(async (req, res) => {
             id_number, marital_status, sector, work_line, department, profession, job_role)
             ILIKE '%' || $1 || '%')
        AND ${scope}
-     ORDER BY updated_at DESC`,
+     ORDER BY updated_at DESC
+     LIMIT ${limit} OFFSET ${offset}`,
     params
   );
   res.json({ records: rows.map(rowToRecord) });
@@ -880,39 +924,45 @@ app.delete("/api/evaluations/:id", requireAuth, wrap(async (req, res) => {
 
 app.get("/api/reports/summary", requireAuth, wrap(async (req, res) => {
   const rp = [];
-  const recs = (await pool.query(
-    `SELECT category, status, kebele, sector FROM records WHERE ${scopeClause(req.user, rp)}`, rp
-  )).rows;
   const ep = [];
-  const evals = (await pool.query(
-    `SELECT rating, outcome FROM evaluations WHERE ${evalScopeClause(req.user, ep)}`, ep
-  )).rows;
+  const recordScope = scopeClause(req.user, rp);
+  const evalScope = evalScopeClause(req.user, ep);
 
-  const averageRating = evals.length
-    ? Number((evals.reduce((s, e) => s + Number(e.rating || 0), 0) / evals.length).toFixed(2))
-    : null;
+  const [byCategory, byStatus, byKebele, bySector, byOutcome, evalStats] = await Promise.all([
+    groupCount("records", "category", recordScope, rp),
+    groupCount("records", "status", recordScope, rp),
+    groupCount("records", "kebele", recordScope, rp),
+    groupCount("records", "sector", recordScope, rp),
+    groupCount("evaluations", "outcome", evalScope, ep),
+    pool.query(`SELECT COUNT(*)::int AS n, AVG(rating) AS avg FROM evaluations WHERE ${evalScope}`, ep)
+  ]);
 
+  const avg = evalStats.rows[0].avg;
   res.json({
-    totalRecords: recs.length,
-    activeRecords: recs.filter(r => r.status === "Active").length,
-    totalEvaluations: evals.length,
-    averageRating,
-    byCategory: countBy(recs, r => r.category),
-    byStatus: countBy(recs, r => r.status),
-    byKebele: countBy(recs, r => r.kebele),
-    bySector: countBy(recs, r => r.sector),
-    byOutcome: countBy(evals, e => e.outcome)
+    totalRecords: Object.values(byCategory).reduce((a, b) => a + b, 0),
+    activeRecords: byStatus["Active"] || 0,
+    totalEvaluations: evalStats.rows[0].n,
+    averageRating: avg === null ? null : Number(Number(avg).toFixed(2)),
+    byCategory,
+    byStatus,
+    byKebele,
+    bySector,
+    byOutcome
   });
 }));
 
 // Public summary: aggregate counts only (no login). No names, record details or evaluations.
 app.get("/api/public/summary", wrap(async (req, res) => {
-  const recs = (await pool.query("SELECT category, status, kebele FROM records")).rows;
+  const [byCategory, byStatus, byKebele] = await Promise.all([
+    groupCount("records", "category", "TRUE", []),
+    groupCount("records", "status", "TRUE", []),
+    groupCount("records", "kebele", "TRUE", [])
+  ]);
   res.json({
-    totalRecords: recs.length,
-    activeRecords: recs.filter(r => r.status === "Active").length,
-    byCategory: countBy(recs, r => r.category),
-    byKebele: countBy(recs, r => r.kebele)
+    totalRecords: Object.values(byCategory).reduce((a, b) => a + b, 0),
+    activeRecords: byStatus["Active"] || 0,
+    byCategory,
+    byKebele
   });
 }));
 

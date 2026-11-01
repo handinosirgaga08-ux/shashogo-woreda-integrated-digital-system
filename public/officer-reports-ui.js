@@ -7,10 +7,12 @@
 
   const D = {
     en: {
-      tab: "Officer Reports", submitTitle: "Submit a work report",
+      tab: "Officer Reports", submitTitle: "Submit a work report", editTitle: "Edit your report",
       submitHint: "Your sector head will review it and send feedback.",
+      editHint: "Fix your report, save, then press \"Resubmit for review\" if it was returned.",
       title: "Report title", period: "Period", details: "Details (activities, results against targets)",
-      submit: "Submit report", listOfficer: "My reports", listHead: "Reports from sector officers",
+      submit: "Submit report", save: "Save changes", cancel: "Cancel", edit: "Edit",
+      listOfficer: "My reports", listHead: "Reports from sector officers",
       none: "No reports yet.", feedback: "Feedback", noFb: "No feedback yet.",
       writeOfficer: "Reply to your sector head...", writeHead: "Write feedback to the officer...",
       sendReply: "Send reply", sendFb: "Send feedback", approve: "Approve", ret: "Return for revision",
@@ -20,10 +22,12 @@
       head: "Sector head", officer: "Sector officer", refresh: "Refresh"
     },
     am: {
-      tab: "የሠራተኛ ሪፖርቶች", submitTitle: "የሥራ ሪፖርት ያስገቡ",
+      tab: "የሠራተኛ ሪፖርቶች", submitTitle: "የሥራ ሪፖርት ያስገቡ", editTitle: "ሪፖርትዎን ያርሙ",
       submitHint: "የዘርፍ ኃላፊዎ ይገመግማል እና አስተያየት ይሰጣል።",
+      editHint: "ሪፖርትዎን ያስተካክሉ፣ ያስቀምጡ፣ ከተመለሰ \"ለግምገማ እንደገና አስገባ\" ይጫኑ።",
       title: "የሪፖርት ርዕስ", period: "ወቅት", details: "ዝርዝር (ተግባራት፣ ከዕቅድ አንጻር ውጤት)",
-      submit: "ሪፖርት አስገባ", listOfficer: "የእኔ ሪፖርቶች", listHead: "ከዘርፍ ሠራተኞች የመጡ ሪፖርቶች",
+      submit: "ሪፖርት አስገባ", save: "ለውጦችን አስቀምጥ", cancel: "ሰርዝ", edit: "አርም",
+      listOfficer: "የእኔ ሪፖርቶች", listHead: "ከዘርፍ ሠራተኞች የመጡ ሪፖርቶች",
       none: "እስካሁን ሪፖርት የለም።", feedback: "አስተያየት", noFb: "እስካሁን አስተያየት የለም።",
       writeOfficer: "ለዘርፍ ኃላፊዎ ምላሽ ይጻፉ...", writeHead: "ለሠራተኛው አስተያየት ይጻፉ...",
       sendReply: "ምላሽ ላክ", sendFb: "አስተያየት ላክ", approve: "አጽድቅ", ret: "ለማሻሻል መልስ",
@@ -39,6 +43,7 @@
   const allowed = u => !!u && ["sector_officer", "sector_head", "admin"].includes(u.role);
 
   let btn = null, panel = null, reports = [], lastEmail = null, lastLang = null, busy = false;
+  let editingId = null; // id of the report the officer is editing, or null
 
   function addStyle() {
     const s = document.createElement("style");
@@ -103,6 +108,7 @@
     const who = isOfficer ? "" : `${esc(r.officerName || r.officerEmail)} · ${esc(r.sector)} · `;
     const buttons = isOfficer
       ? `<button class="primary" data-act="fb" data-id="${esc(r.id)}">${esc(L("sendReply"))}</button>` +
+        (r.status !== "Approved" ? `<button class="secondary" data-act="edit" data-id="${esc(r.id)}">${esc(L("edit"))}</button>` : "") +
         (r.status === "Returned" ? `<button class="secondary" data-act="resubmit" data-id="${esc(r.id)}">${esc(L("resubmit"))}</button>` : "")
       : `<button class="primary" data-act="fb" data-id="${esc(r.id)}">${esc(L("sendFb"))}</button>
          <button class="secondary" data-act="approve" data-id="${esc(r.id)}">${esc(L("approve"))}</button>
@@ -121,21 +127,59 @@
     if (!panel || !allowed(u)) return;
     const isOfficer = u.role === "sector_officer";
     btn.textContent = L("tab");
+
+    // Stop editing a report that is gone or already approved.
+    if (editingId) {
+      const cur = reports.find(r => r.id === editingId);
+      if (!cur || cur.status === "Approved") editingId = null;
+    }
+
+    // Keep what the officer has typed so a refresh does not wipe it.
+    const ids = ["orTitle", "orPeriod", "orDetails"];
+    const keep = ids.map(id => { const el = document.getElementById(id); return el ? el.value : null; });
+
+    const editing = !!editingId;
     const form = isOfficer ? `
-      <h2>${esc(L("submitTitle"))}</h2>
-      <p class="muted">${esc(L("submitHint"))}</p>
+      <h2>${esc(L(editing ? "editTitle" : "submitTitle"))}</h2>
+      <p class="muted">${esc(L(editing ? "editHint" : "submitHint"))}</p>
       <div class="grid">
         <label>${esc(L("title"))} *<input id="orTitle" maxlength="150"></label>
         <label>${esc(L("period"))} *<input id="orPeriod" maxlength="40" placeholder="2026-09"></label>
       </div>
       <label style="margin-top:14px">${esc(L("details"))} *<textarea id="orDetails" maxlength="5000"></textarea></label>
-      <div class="actions"><button class="primary" data-act="submit">${esc(L("submit"))}</button></div>
+      <div class="actions">
+        <button class="primary" data-act="submit">${esc(L(editing ? "save" : "submit"))}</button>
+        ${editing ? `<button class="secondary" data-act="cancel">${esc(L("cancel"))}</button>` : ""}
+      </div>
       <h2 style="margin-top:24px">${esc(L("listOfficer"))}</h2>` : `<h2>${esc(L("listHead"))}</h2>`;
     panel.innerHTML = `<div class="card">${form}
       <div class="actions" style="margin-top:0"><button class="secondary" data-act="refresh">${esc(L("refresh"))}</button></div>
       <div id="orError" class="error"></div>
       ${reports.length ? reports.map(r => card(r, isOfficer)).join("") : `<p class="muted">${esc(L("none"))}</p>`}
     </div>`;
+
+    ids.forEach((id, i) => {
+      const el = document.getElementById(id);
+      if (el && keep[i] !== null) el.value = keep[i];
+    });
+  }
+
+  function startEdit(id) {
+    const r = reports.find(x => x.id === id);
+    if (!r || r.status === "Approved") return;
+    editingId = id;
+    render();
+    document.getElementById("orTitle").value = r.title;
+    document.getElementById("orPeriod").value = r.period;
+    document.getElementById("orDetails").value = r.details;
+    document.getElementById("orTitle").scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  function clearForm() {
+    ["orTitle", "orPeriod", "orDetails"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = "";
+    });
   }
 
   async function onClick(e) {
@@ -143,6 +187,11 @@
     if (!b) return;
     if (busy) return; // ignore double taps while a request is running
     const act = b.dataset.act, id = b.dataset.id;
+
+    // These two only change the screen, no request needed.
+    if (act === "edit") { setErr(""); startEdit(id); return; }
+    if (act === "cancel") { editingId = null; clearForm(); render(); return; }
+
     const box = id ? document.getElementById("orbox_" + id) : null;
     const text = box ? box.value.trim() : "";
     setErr("");
@@ -157,7 +206,13 @@
           details: document.getElementById("orDetails").value.trim()
         };
         if (!body.title || !body.period || !body.details) return setErr(L("required"));
-        await api("/api/officer-reports", { method: "POST", body: JSON.stringify(body) });
+        if (editingId) {
+          await api(`/api/officer-reports/${encodeURIComponent(editingId)}`, { method: "PUT", body: JSON.stringify(body) });
+        } else {
+          await api("/api/officer-reports", { method: "POST", body: JSON.stringify(body) });
+        }
+        editingId = null;
+        clearForm();
       } else if (act === "fb") {
         if (!text) return setErr(L("needsText"));
         await api(`/api/officer-reports/${encodeURIComponent(id)}/feedback`, { method: "POST", body: JSON.stringify({ text }) });
@@ -184,11 +239,15 @@
     if (allowed(u)) {
       build();
       btn.classList.remove("hidden");
-      if (u.email !== lastEmail) { lastEmail = u.email; reports = []; panel.classList.add("hidden"); btn.classList.remove("active"); }
+      if (u.email !== lastEmail) {
+        lastEmail = u.email; reports = []; editingId = null;
+        panel.classList.add("hidden"); btn.classList.remove("active");
+      }
       const cl = curLang();
       if (cl !== lastLang) { lastLang = cl; btn.textContent = L("tab"); if (!panel.classList.contains("hidden")) render(); }
     } else if (btn) {
       lastEmail = null;
+      editingId = null;
       btn.classList.add("hidden");
       panel.classList.add("hidden");
     }

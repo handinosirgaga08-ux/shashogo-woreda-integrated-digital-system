@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Welcome / እንኳን ደህና መጡ – Live 24/7, 365</title>
+<style>
+:root{--bg:#f4f7fb;--card:#fff;--text:#12233d;--muted:#5a6b85;--accent:#0a64d6;--accent2:#ffcc00;--ring:rgba(10,100,214,.25);
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1424;--card:#13203a;--text:#eaf1fb;--muted:#9fb1cc;--accent:#5aa2ff;--ring:rgba(90,162,255,.3)}}
+:root[data-theme="dark"]{--bg:#0b1424;--card:#13203a;--text:#eaf1fb;--muted:#9fb1cc;--accent:#5aa2ff;--ring:rgba(90,162,255,.3)}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Ethiopic","Abyssinica SIL","Nyala",sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.banner{width:100%;max-width:760px;background:var(--card);border-radius:20px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.12)}
+.top{background:linear-gradient(135deg,#0a64d6,#0b3d91);color:#fff;padding:28px 22px;text-align:center;position:relative}
+.top::after{content:"";position:absolute;left:0;right:0;bottom:0;height:6px;background:var(--accent2)}
+.live{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.16);padding:6px 14px;border-radius:99px;font-size:.85rem;font-weight:600;letter-spacing:.04em}
+.dot{width:10px;height:10px;border-radius:50%;background:#3ddc84;box-shadow:0 0 0 0 var(--ring);animation:pulse 1.8s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 10px rgba(61,220,132,0)}100%{box-shadow:0 0 0 0 rgba(61,220,132,0)}}
+@media (prefers-reduced-motion:reduce){.dot{animation:none}}
+h1{margin:16px 0 6px;font-size:clamp(1.8rem,7vw,2.8rem);line-height:1.1}
+.sub{margin:0;opacity:.92;font-size:1.05rem}
+.body{padding:22px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+.stat{background:var(--bg);border-radius:14px;padding:14px 6px;text-align:center}
+.stat b{display:block;font-size:1.5rem;color:var(--accent)}
+.stat span{font-size:.8rem;color:var(--muted)}
+.tabs{display:flex;gap:8px;justify-content:center;margin-bottom:14px}
+button{font:inherit;cursor:pointer;border:2px solid var(--accent);background:transparent;color:var(--accent);padding:10px 18px;border-radius:12px;font-weight:600;min-height:44px}
+button[aria-pressed="true"],button.primary{background:var(--accent);color:#fff}
+button:focus-visible{outline:3px solid var(--accent2);outline-offset:2px}
+.msg{text-align:center;font-size:1.1rem;line-height:1.55;margin:0 0 18px}
+.msg strong{display:block;font-size:1.3rem;margin-bottom:6px}
+.actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.foot{padding:14px 22px;border-top:1px solid var(--ring);text-align:center;color:var(--muted);font-size:.85rem}
+</style>
+</head>
+<body>
+<main class="banner">
+  <header class="top">
+    <span class="live"><i class="dot"></i><span id="live">LIVE 24/7 · 365</span></span>
+    <h1 id="title">Welcome</h1>
+    <p class="sub" id="sub">We’re here for you every hour of every day, all year long.</p>
+  </header>
+  <section class="body">
+    <div class="stats" aria-label="Availability">
+      <div class="stat"><b>24</b><span id="s1">hours</span></div>
+      <div class="stat"><b>7</b><span id="s2">days</span></div>
+      <div class="stat"><b>365</b><span id="s3">days a year</span></div>
+    </div>
+    <div class="tabs" role="group" aria-label="Language">
+      <button id="en" aria-pressed="true">English</button>
+      <button id="sv" aria-pressed="false">አማርኛ</button>
+    </div>
+    <p class="msg" id="msg"><strong>Hello and welcome!</strong>Our service never closes. Reach out any time, day or night, and we’ll be happy to help.</p>
+    <div class="actions">
+      <button class="primary" id="chime">🔔 <span id="b1">Play welcome sound</span></button>
+    </div>
+  </section>
+</main>
+<script>
+var T={
+ en:{lang:"en",live:"LIVE 24/7 · 365",title:"Welcome",sub:"We’re here for you every hour of every day, all year long.",
+  s1:"hours",s2:"days",s3:"days a year",
+  msg:"<strong>Hello and welcome!</strong>Our service never closes. Reach out any time, day or night, and we’ll be happy to help.",
+  b1:"Play welcome sound",b2:"Say welcome",foot:"Open always · Never closed · Every day of the year",
+  say:"Hello and welcome! We are open twenty-four hours a day, seven days a week, three hundred sixty-five days a year.",voice:"en-US"},
+ sv:{lang:"am",live:"በቀጥታ 24/7 · 365",title:"እንኳን ደህና መጡ",sub:"ቀኑን ሙሉ፣ ዓመቱን በሙሉ ለእርስዎ ዝግጁ ነን።",
+  s1:"ሰዓታት",s2:"ቀናት",s3:"ቀናት በዓመት",
+  msg:"<strong>ሰላም፣ እንኳን ደህና መጡ!</strong>አገልግሎታችን ፈጽሞ አይዘጋም። በማንኛውም ጊዜ፣ ቀንም ሆነ ሌሊት ያግኙን፤ ልንረዳዎ ደስተኞች ነን።",
+  b1:"የእንኳን ደህና መጡ ድምፅ ያጫውቱ",b2:"እንኳን ደህና መጡ ይበሉ",foot:"ሁልጊዜ ክፍት · ፈጽሞ አይዘጋም · በዓመቱ ሁሉ ቀናት",
+  say:"ሰላም፣ እንኳን ደህና መጡ! ቀን ከሌሊት፣ በሳምንት ሰባት ቀን፣ በዓመት ሦስት መቶ ስልሳ አምስት ቀን ክፍት ነን።",voice:"am-ET"}
+};
+var cur="en";
+function $(i){return document.getElementById(i)}
+function setLang(l){
+  cur=l;var t=T[l];document.documentElement.lang=t.lang;
+  ["live","title","sub","s1","s2","s3","b1"].forEach(function(k){$(k).textContent=t[k]});
+  $("msg").innerHTML=t.msg;
+  $("en").setAttribute("aria-pressed",l==="en");$("sv").setAttribute("aria-pressed",l==="sv");
+}
+$("en").onclick=function(){setLang("en")};
+$("sv").onclick=function(){setLang("sv")};
+function chime(){
+  try{
+    var AC=window.AudioContext||window.webkitAudioContext;var c=new AC();
+    [523.25,659.25,783.99,1046.5].forEach(function(f,i){
+      var o=c.createOscillator(),g=c.createGain();o.type="sine";o.frequency.value=f;
+      var s=c.currentTime+i*0.18;
+      g.gain.setValueAtTime(0.0001,s);g.gain.exponentialRampToValueAtTime(0.25,s+0.03);g.gain.exponentialRampToValueAtTime(0.0001,s+0.9);
+      o.connect(g);g.connect(c.destination);o.start(s);o.stop(s+1);
+    });
+  }catch(e){}
+}
+function speak(){
+  try{
+    if(!window.speechSynthesis)return;
+    speechSynthesis.cancel();
+    var u=new SpeechSynthesisUtterance(T[cur].say);u.lang=T[cur].voice;u.rate=.95;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+$("chime").onclick=chime;
+</script>
+</body>
+</html>

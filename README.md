@@ -1,12 +1,22 @@
-![Shashogo Woreda Integrated Digital System](boyo-lake.jpg)
+![Shashogo Woreda Integrated Digital System banner (Boyo Lake)](boyo-lake.jpg)
 
 # Shashogo Woreda Integrated Digital System (SWIDS)
 
-**Domain:** [shashogo.gov.et](https://shashogo.gov.et)
+> An e-government platform for Shashogo Woreda, Hadiya Zone, Central Ethiopia. It brings woreda sector offices, rural kebeles, and citizens into one online system for records, reporting, performance evaluation, and public services.
+
+**Website:** [shashogo.gov.et](https://shashogo.gov.et)
 
 ## Overview
 
-SWIDS is a unified e-government platform that brings all sectors of Shashogo Woreda, including rural kebeles, into one digital system. It modernizes local service delivery by combining record keeping, reporting, performance evaluation, and citizen services in a single online platform.
+The Shashogo Woreda Integrated Digital System (SWIDS) is a unified e-government platform that brings all sectors of Shashogo Woreda, including rural kebeles, into one digital system. It modernizes local service delivery by combining record keeping, reporting, performance evaluation, and citizen services in a single online platform.
+
+## About Shashogo Woreda
+
+Shashogo is a woreda (district) in the Hadiya Zone of Central Ethiopia, about 224 km from Addis Ababa and about 125 km from Hawassa. It borders the Kembata Tembaro Zone to the south, Limo to the west, Ana Lemo to the northwest, the Silt'e Zone to the northeast, and Alaba special woreda to the southeast.
+
+The woreda is made up of 36 kebeles, mostly rural. The 2007 national census counted about 104,000 residents, and more recent estimates are higher. Local livelihoods depend largely on agriculture.
+
+SWIDS was built to help the woreda administration coordinate its sector offices and kebeles, serve citizens faster, and base decisions on up-to-date data.
 
 ## Key Features
 
@@ -38,6 +48,13 @@ Each user sees only the data in their scope. A scoped user with no kebele or sec
 - Reduce the time and cost for citizens to access government services.
 - Strengthen coordination between the woreda and rural kebeles.
 - Provide data-driven insight for monitoring and decision-making.
+
+## Target Users
+
+- Woreda sector offices
+- Rural kebele administrations
+- Citizens of Shashogo Woreda
+- Regional oversight bodies
 
 ## Technology Stack
 
@@ -167,13 +184,6 @@ npm install @handinosirgaga08-ux/swids
 ```
 
 Never commit your `.npmrc` with a real token.
-
-## Target Users
-
-- Woreda sector offices
-- Rural kebele administrations
-- Citizens of Shashogo Woreda
-- Regional oversight bodies
 
 ## Contributing
 

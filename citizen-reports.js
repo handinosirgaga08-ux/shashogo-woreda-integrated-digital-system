@@ -142,7 +142,6 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
     if (total.rows[0].n === 0) return false; // no sectors set up: nothing to match
     return (await pool.query("SELECT 1 FROM sectors WHERE name=$1 AND active=true", [name])).rowCount > 0;
   }
-  const toDate = v => { const t = Date.parse(v); return Number.isNaN(t) ? null : new Date(t).toISOString(); };
   
   async function kebeleExists(name) {
     const total = await pool.query("SELECT COUNT(*)::int n FROM kebeles WHERE active = true");

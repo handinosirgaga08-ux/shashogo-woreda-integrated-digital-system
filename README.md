@@ -198,4 +198,4 @@ Add a license here (for example MIT), or state that all rights are reserved.
 Shashogo Woreda Administration, [shashogo.gov.et](https://shashogo.gov.et)
 
 - Email: [Sirgagahandino946@gmail.com](mailto:Sirgagahandino946@gmail.com)
-- Phone: 0920992644
+- Phone: 0920991644

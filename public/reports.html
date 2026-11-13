@@ -56,9 +56,6 @@ button.main{width:100%;margin-top:14px;background:var(--accent);color:var(--on);
     <label for="kebele" data-t="kebele"></label>
     <select id="kebele" required></select>
 
-    <label for="sector" data-t="sector"></label>
-    <select id="sector" required></select>
-
     <label for="cat" data-t="category"></label>
     <select id="cat" required></select>
 
@@ -80,9 +77,11 @@ button.main{width:100%;margin-top:14px;background:var(--accent);color:var(--on);
     <div id="phoneWrap" hidden>
       <label for="phone" data-t="phone"></label>
       <input type="tel" id="phone" inputmode="tel" placeholder="09…">
+      <label for="email"><span data-t="email"></span> <small data-t="opt"></small></label>
+      <input type="text" id="email" inputmode="email" autocapitalize="none">
     </div>
 
-    <button class="main" type="submit" data-t="send"></button>
+    <button class="main" type="submit" id="sendBtn" data-t="send"></button>
     <div class="msg" id="sent" hidden></div>
     <div class="msg err" id="formErr" hidden></div>
   </form>
@@ -99,87 +98,140 @@ button.main{width:100%;margin-top:14px;background:var(--accent);color:var(--on);
 <script>
 var T={
 en:{title:"Report a problem",intro:"Tell the Woreda office about an issue in your Kebele. You will get a tracking number.",
-kebele:"Kebele",sector:"Sector",category:"Category",ttl:"Title",place:"Place or landmark",opt:"(optional)",desc:"What happened?",
+kebele:"Kebele",category:"Category",ttl:"Title",place:"Place or landmark",opt:"(optional)",desc:"What happened?",
 photos:"Photos",photosHint:"(up to 3, optional)",urgent:"This is urgent",anon:"Send without my phone number",phone:"Phone number",
 send:"Send report",track:"Track a report",tn:"Tracking number",check:"Check status",
-chooseK:"Choose a Kebele",chooseS:"Choose a sector",chooseC:"Choose a category",
-need:"Please fill in: Kebele, Sector, Category, Title and What happened.",needPhone:"Enter your phone number, or tick “Send without my phone number”.",
+chooseK:"Choose a Kebele",chooseC:"Choose a category",
+need:"Please fill in: Kebele, Category, Title and What happened.",needPhone:"Enter your phone number, or tick “Send without my phone number”.",
 maxPhotos:"You can add up to 3 photos only.",sentMsg:"Report sent. Your tracking number is",keep:"Save it to check the status later.",
 st:"Status",received:"Received by the Woreda office",nf:"No report found with this number. Check it and try again.",enterTn:"Enter a tracking number.",
 urg:"Marked urgent",
-sectors:["Water","Roads","Health","Education","Electricity","Sanitation","Security"],
-cats:["Service not working","Damage","Delay in service","Misconduct or corruption","Other"]},
+email:"Email",sending:"Sending…",loadFail:"Could not load the form options. Check your connection and reload the page.",netFail:"Could not reach the server. Check your connection and try again. Your answers are still here.",badPhoto:"One of the photos could not be read. Try a different photo."},
 am:{title:"ችግር ያሳውቁ",intro:"ስለ ቀበሌዎ ችግር ለወረዳ ጽ/ቤት ያሳውቁ። የመከታተያ ቁጥር ያገኛሉ።",
-kebele:"ቀበሌ",sector:"ዘርፍ",category:"ምድብ",ttl:"ርዕስ",place:"ቦታ ወይም የቦታ ምልክት",opt:"(አማራጭ)",desc:"ምን ተፈጠረ?",
+kebele:"ቀበሌ",category:"ምድብ",ttl:"ርዕስ",place:"ቦታ ወይም የቦታ ምልክት",opt:"(አማራጭ)",desc:"ምን ተፈጠረ?",
 photos:"ፎቶዎች",photosHint:"(እስከ 3፣ አማራጭ)",urgent:"አስቸኳይ ነው",anon:"ያለ ስልክ ቁጥሬ ላክ",phone:"ስልክ ቁጥር",
 send:"ሪፖርት ላክ",track:"ሪፖርት ተከታተል",tn:"የመከታተያ ቁጥር",check:"ሁኔታ ተመልከት",
-chooseK:"ቀበሌ ይምረጡ",chooseS:"ዘርፍ ይምረጡ",chooseC:"ምድብ ይምረጡ",
-need:"እባክዎ ይሙሉ፦ ቀበሌ፣ ዘርፍ፣ ምድብ፣ ርዕስ እና ምን ተፈጠረ።",needPhone:"ስልክ ቁጥርዎን ያስገቡ ወይም “ያለ ስልክ ቁጥሬ ላክ” ይምረጡ።",
+chooseK:"ቀበሌ ይምረጡ",chooseC:"ምድብ ይምረጡ",
+need:"እባክዎ ይሙሉ፦ ቀበሌ፣ ምድብ፣ ርዕስ እና ምን ተፈጠረ።",needPhone:"ስልክ ቁጥርዎን ያስገቡ ወይም “ያለ ስልክ ቁጥሬ ላክ” ይምረጡ።",
 maxPhotos:"እስከ 3 ፎቶ ብቻ ማያያዝ ይችላሉ።",sentMsg:"ሪፖርትዎ ተልኳል። የመከታተያ ቁጥርዎ፦",keep:"ሁኔታውን ለመከታተል ያስቀምጡት።",
 st:"ሁኔታ",received:"በወረዳ ጽ/ቤት ደርሷል",nf:"በዚህ ቁጥር የተመዘገበ ሪፖርት አልተገኘም። ቁጥሩን አረጋግጠው እንደገና ይሞክሩ።",enterTn:"የመከታተያ ቁጥር ያስገቡ።",
 urg:"አስቸኳይ ተብሎ ተመዝግቧል",
-sectors:["ውሃ","መንገድ","ጤና","ትምህርት","ኤሌክትሪክ","ንጽህና","ደህንነት"],
-cats:["አገልግሎት አይሰራም","ጉዳት","የአገልግሎት መዘግየት","ሥነ ምግባር ጉድለት ወይም ሙስና","ሌላ"]}
+email:"ኢሜይል",sending:"በመላክ ላይ…",loadFail:"የቅጹን አማራጮች መጫን አልተቻለም። ግንኙነትዎን አረጋግጠው ገጹን እንደገና ይጫኑ።",netFail:"ከአገልጋዩ ጋር መገናኘት አልተቻለም። ግንኙነትዎን አረጋግጠው እንደገና ይሞክሩ። የሞሉት መረጃ አልጠፋም።",badPhoto:"አንዱን ፎቶ ማንበብ አልተቻለም። ሌላ ፎቶ ይሞክሩ።"}
 };
-var lang="en", reports={};
-try{ reports=JSON.parse(localStorage.getItem("reports")||"{}"); }catch(e){}
+var lang="en", kebeles=[], cats=[], busy=false;
 var $=function(id){return document.getElementById(id)};
+var CAT_AM={"Service complaint":"የአገልግሎት ቅሬታ","Infrastructure":"መሠረተ ልማት","Water":"ውሃ","Road and transport":"መንገድና ትራንስፖርት","Education":"ትምህርት","Security":"ደህንነት","Health":"ጤና","Agriculture":"ግብርና","Suggestion":"አስተያየት","Other":"ሌላ"};
+var ST_AM={"Submitted":"ተልኳል","Received":"በወረዳ ጽ/ቤት ደርሷል","In progress":"በሂደት ላይ","On hold":"ለጊዜው ቆሟል","Resolved":"ተፈትቷል","Rejected":"ውድቅ ተደርጓል"};
+
+function api(url,opt){
+  opt=opt||{};
+  if(opt.body&&typeof opt.body!=="string"){opt.body=JSON.stringify(opt.body);opt.headers={"Content-Type":"application/json"}}
+  return fetch(url,opt).then(function(r){
+    return r.json().catch(function(){return{}}).then(function(j){
+      if(!r.ok){var e=new Error(j.error||"Error");e.status=r.status;throw e}
+      return j;
+    });
+  });
+}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function show(id,html){var el=$(id);el.innerHTML=html;el.hidden=false}
+function catLabel(c){return lang==="am"&&CAT_AM[c]?CAT_AM[c]:c}
+function stLabel(c){return lang==="am"&&ST_AM[c]?ST_AM[c]:c}
 
 function fill(sel,placeholder,items,keepVal){
-  var v=keepVal;
+  // items: [{v,l}]
   sel.innerHTML="";
-  var o=new Option(placeholder,"");sel.add(o);
-  items.forEach(function(t,i){sel.add(new Option(t,String(i)))});
-  sel.value=v||"";
+  sel.add(new Option(placeholder,""));
+  items.forEach(function(it){sel.add(new Option(it.l,it.v))});
+  sel.value=keepVal||"";
 }
 function render(){
   var t=T[lang];
   document.documentElement.lang=lang;
   document.querySelectorAll("[data-t]").forEach(function(el){el.textContent=t[el.dataset.t]});
-  var ks=[];for(var i=1;i<=6;i++){ks.push((lang==="am"?"ቀበሌ ":"Kebele ")+(i<10?"0":"")+i)}
-  fill($("kebele"),t.chooseK,ks,$("kebele").value);
-  fill($("sector"),t.chooseS,t.sectors,$("sector").value);
-  fill($("cat"),t.chooseC,t.cats,$("cat").value);
+  fill($("kebele"),t.chooseK,kebeles.map(function(k){return{v:k,l:k}}),$("kebele").value);
+  fill($("cat"),t.chooseC,cats.map(function(c){return{v:c,l:catLabel(c)}}),$("cat").value);
   document.querySelectorAll(".lang button").forEach(function(b){b.setAttribute("aria-pressed",b.dataset.l===lang)});
   ["sent","formErr","status"].forEach(function(id){$(id).hidden=true});
 }
-document.querySelectorAll(".lang button").forEach(function(b){
-  b.onclick=function(){lang=b.dataset.l;render()};
-});
+function loadOptions(){
+  var okK=api("/api/public/kebeles").then(function(r){kebeles=r.kebeles||[]});
+  var okC=api("/api/public/report-options").then(function(r){cats=r.categories||[]});
+  return Promise.all([okK,okC]).then(render).catch(function(){
+    render();show("formErr",T[lang].loadFail);
+  });
+}
+document.querySelectorAll(".lang button").forEach(function(b){b.onclick=function(){lang=b.dataset.l;render()}});
 $("anon").onchange=function(){$("phoneWrap").hidden=$("anon").checked};
 $("photos").onchange=function(){
   if($("photos").files.length>3){$("photos").value="";show("formErr",T[lang].maxPhotos)}
 };
-function show(id,html){var el=$(id);el.innerHTML=html;el.hidden=false}
-function makeId(){
-  var c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789",s="";
-  for(var i=0;i<6;i++)s+=c[Math.floor(Math.random()*c.length)];
-  return "SW-2026-"+s;
+
+// Shrink a photo to a JPEG under ~240 KB (the server accepts at most 250 KB each).
+function shrink(file){
+  return new Promise(function(resolve,reject){
+    var url=URL.createObjectURL(file),img=new Image();
+    img.onload=function(){
+      URL.revokeObjectURL(url);
+      var max=1280,tries=[[0.8,1],[0.65,1],[0.55,.8],[0.45,.65],[0.4,.5]];
+      for(var i=0;i<tries.length;i++){
+        var sc=Math.min(1,max/Math.max(img.width,img.height))*tries[i][1];
+        var c=document.createElement("canvas");
+        c.width=Math.max(1,Math.round(img.width*sc));c.height=Math.max(1,Math.round(img.height*sc));
+        var g=c.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,c.width,c.height);g.drawImage(img,0,0,c.width,c.height);
+        var d=c.toDataURL("image/jpeg",tries[i][0]);
+        if(d.length*0.75<240*1024)return resolve(d);
+      }
+      reject(new Error("photo"));
+    };
+    img.onerror=function(){URL.revokeObjectURL(url);reject(new Error("photo"))};
+    img.src=url;
+  });
 }
+
 $("f").onsubmit=function(e){
   e.preventDefault();
+  if(busy)return;
   var t=T[lang];
   $("sent").hidden=true;$("formErr").hidden=true;
-  if(!$("kebele").value||!$("sector").value||!$("cat").value||!$("ttl").value.trim()||!$("desc").value.trim()){return show("formErr",t.need)}
-  if(!$("anon").checked&&!$("phone").value.trim()){return show("formErr",t.needPhone)}
-  var id=makeId();
-  reports[id]={urgent:$("urgent").checked,at:Date.now()};
-  try{localStorage.setItem("reports",JSON.stringify(reports))}catch(err){}
-  show("sent",t.sentMsg+" <b>"+id+"</b><br>"+t.keep);
-  $("tn").value=id;
-  $("f").reset();$("anon").checked=true;$("phoneWrap").hidden=true;
-  fill($("kebele"),t.chooseK,[],"");render();$("sent").hidden=false;
-  show("sent",t.sentMsg+" <b>"+id+"</b><br>"+t.keep);
+  if(!$("kebele").value||!$("cat").value||!$("ttl").value.trim()||!$("desc").value.trim()){return show("formErr",t.need)}
+  var anon=$("anon").checked;
+  if(!anon&&!$("phone").value.trim()){return show("formErr",t.needPhone)}
+  busy=true;$("sendBtn").disabled=true;$("sendBtn").textContent=t.sending;
+  var files=Array.prototype.slice.call($("photos").files,0,3);
+  Promise.all(files.map(shrink)).then(function(photos){
+    return api("/api/citizen-reports",{method:"POST",body:{
+      kebele:$("kebele").value,category:$("cat").value,title:$("ttl").value.trim(),
+      locationDetail:$("place").value.trim(),description:$("desc").value.trim(),
+      priority:$("urgent").checked?"Urgent":"Normal",anonymous:anon,
+      phone:anon?"":$("phone").value.trim(),email:anon?"":$("email").value.trim(),photos:photos}});
+  }).then(function(r){
+    $("f").reset();$("anon").checked=true;$("phoneWrap").hidden=true;
+    render();
+    $("tn").value=r.trackingNo;
+    show("sent",t.sentMsg+" <b>"+esc(r.trackingNo)+"</b><br>"+t.keep);
+  }).catch(function(err){
+    var m=err.message==="photo"?t.badPhoto:(err.status?err.message:t.netFail);
+    show("formErr",esc(m));
+  }).then(function(){busy=false;$("sendBtn").disabled=false;$("sendBtn").textContent=T[lang].send});
 };
+
 $("check").onclick=function(){
   var t=T[lang],id=$("tn").value.trim().toUpperCase();
-  if(!id){return show("status",t.enterTn)}
-  var r=reports[id];
-  if(!r){show("status",t.nf);$("status").classList.add("err");return}
   $("status").classList.remove("err");
-  show("status",t.st+": <b>"+t.received+"</b>"+(r.urgent?"<br>"+t.urg:""));
+  if(!id){return show("status",t.enterTn)}
+  api("/api/citizen-reports/track/"+encodeURIComponent(id)).then(function(r){
+    var x=r.report,h=t.st+": <b>"+esc(stLabel(x.status))+"</b>"+(x.priority==="Urgent"?"<br>"+t.urg:"");
+    (x.updates||[]).forEach(function(u){
+      if(u.note&&u.note!=="Report submitted")h+="<br><small>"+esc(new Date(u.created_at).toLocaleDateString())+" - "+esc(u.note)+"</small>";
+    });
+    show("status",h);
+  }).catch(function(err){
+    $("status").classList.add("err");
+    show("status",err.status===404?t.nf:(err.status?esc(err.message):t.netFail));
+  });
 };
-render();
+loadOptions();
 </script>
 </body>
 </html>

@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Citizen Reports Inbox - SWIDS</title>
+<style>
+:root{--bg:#121b18;--card:#1a2420;--line:#2a3833;--tx:#e8f0ec;--mu:#92a49c;--ac:#4fc08d;--ink:#0e1713;--red:#e5736a;--amb:#e3b455}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+h1{font-size:18px;margin:0;flex:1}
+.badge{background:var(--red);color:#fff;border-radius:99px;padding:1px 9px;font-size:13px;font-weight:700;margin-left:6px}
+.badge[hidden]{display:none}
+button,select,input,textarea{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+button{cursor:pointer}button.pri{background:var(--ac);color:var(--ink);border:0;font-weight:700}
+button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--ac)}
+.bar{display:flex;gap:8px;padding:10px 14px;flex-wrap:wrap}.bar input{flex:1;min-width:140px}
+main{max-width:760px;margin:0 auto}
+.item{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;padding:12px 14px}
+.item.new{background:#16261f;border-left:4px solid var(--ac);padding-left:10px}
+.item.new .t{font-weight:700}
+.row{display:flex;justify-content:space-between;gap:8px}
+.t{margin:0}.m{color:var(--mu);font-size:13px}
+.pill{font-size:12px;border:1px solid var(--line);border-radius:99px;padding:0 8px;white-space:nowrap}
+.urg{color:var(--red);border-color:var(--red)}.od{color:var(--amb);border-color:var(--amb)}
+#detail{position:fixed;inset:0;background:var(--bg);overflow:auto;padding:14px;display:none;z-index:10}
+#detail .in{max-width:760px;margin:0 auto}
+.f{display:grid;gap:8px;margin:12px 0}
+.ph{display:flex;gap:8px;flex-wrap:wrap}.ph img{width:96px;height:96px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.hist{border-left:2px solid var(--line);margin:10px 0;padding-left:12px}.hist div{margin-bottom:8px}
+#toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ac);color:var(--ink);font-weight:700;padding:10px 16px;border-radius:10px;display:none;z-index:20}
+#login{max-width:340px;margin:60px auto;padding:14px;display:none}#login input{width:100%;margin-bottom:8px}
+.empty{padding:40px 14px;text-align:center;color:var(--mu)}
+</style>
+</head>
+<body>
+<div id="login">
+  <h1>Sign in</h1><p class="m">Sign in with your SWIDS staff account to see citizen reports.</p>
+  <input id="em" type="email" placeholder="Email" autocomplete="username">
+  <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
+  <button class="pri" id="go" style="width:100%">Sign in</button><p id="le" class="m"></p>
+</div>
+
+<div id="app" style="display:none">
+<header>
+  <h1>Citizen reports <span id="nb" class="badge" hidden>0</span></h1>
+  <button id="al">Turn on alerts</button>
+  <a href="/" class="m">Back</a>
+</header>
+<div class="bar">
+  <input id="q" type="search" placeholder="Search title, place, tracking number">
+  <select id="st"><option value="">All statuses</option><option>Submitted</option><option>Received</option><option>In progress</option><option>On hold</option><option>Resolved</option><option>Rejected</option></select>
+  <select id="ur"><option value="">Any priority</option><option>Urgent</option><option>Normal</option></select>
+</div>
+<main id="list"></main>
+<div class="m" style="text-align:center;padding:12px"><button id="more" hidden>Load more</button></div>
+</div>
+
+<div id="detail"><div class="in" id="din"></div></div>
+<div id="toast"></div>
+
+<script>
+var $=function(i){return document.getElementById(i)};
+var esc=function(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})};
+var me=null,page=1,pages=1,lastNew=null,timer=null,canEdit=false;
+var STAT=["Submitted","Received","In progress","On hold","Resolved","Rejected"];
+
+function api(url,opt){
+  opt=opt||{};opt.credentials="same-origin";
+  if(opt.body&&typeof opt.body!=="string"){opt.body=JSON.stringify(opt.body);opt.headers={"Content-Type":"application/json"};}
+  return fetch(url,opt).then(function(r){
+    if(r.status===401){showLogin();throw new Error("auth");}
+    return r.json().then(function(j){if(!r.ok)throw new Error(j.error||"Error");return j;});
+  });
+}
+function toast(t){var e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(e._t);e._t=setTimeout(function(){e.style.display="none"},3500)}
+function showLogin(){$("app").style.display="none";$("login").style.display="block";clearInterval(timer)}
+function beep(){try{var a=new (window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=880;g.gain.value=.15;o.start();o.stop(a.currentTime+.25)}catch(e){}}
+function ago(d){var s=(Date.now()-new Date(d))/1000;if(s<60)return"just now";if(s<3600)return Math.floor(s/60)+" min ago";if(s<86400)return Math.floor(s/3600)+" h ago";return new Date(d).toLocaleDateString()}
+
+$("go").onclick=function(){
+  api("/api/login",{method:"POST",body:{email:$("em").value,password:$("pw").value}}).then(start).catch(function(e){$("le").textContent=e.message==="auth"?"Wrong email or password.":e.message});
+};
+
+function start(){
+  api("/api/me").then(function(r){
+    me=r.user;canEdit=me.role==="admin"||me.role==="kebele_officer";
+    $("login").style.display="none";$("app").style.display="block";
+    load(true);poll();clearInterval(timer);timer=setInterval(poll,30000);
+  }).catch(function(){});
+}
+
+function load(reset){
+  if(reset){page=1;$("list").innerHTML="";}
+  var p=new URLSearchParams({page:page,limit:25,sort:"newest",q:$("q").value,status:$("st").value,priority:$("ur").value});
+  api("/api/citizen-reports?"+p).then(function(r){
+    pages=r.pages;
+    if(reset&&!r.reports.length)$("list").innerHTML='<div class="empty">No reports match. New citizen reports will appear here.</div>';
+    r.reports.forEach(function(x){
+      var b=document.createElement("button");
+      b.className="item"+(x.status==="Submitted"?" new":"");
+      b.innerHTML='<div class="row"><p class="t">'+esc(x.title)+'</p><span class="m">'+ago(x.created_at)+'</span></div>'+
+        '<div class="row"><span class="m">'+esc(x.kebele)+' - '+esc(x.category)+' - '+esc(x.tracking_no)+'</span><span>'+
+        (x.priority==="Urgent"?'<span class="pill urg">Urgent</span> ':'')+(x.overdue?'<span class="pill od">Overdue</span> ':'')+'<span class="pill">'+esc(x.status)+'</span></span></div>';
+      b.onclick=function(){openReport(x.id)};
+      $("list").appendChild(b);
+    });
+    $("more").hidden=page>=pages;
+  }).catch(function(e){if(e.message!=="auth")toast(e.message)});
+}
+$("more").onclick=function(){page++;load(false)};
+var deb;["q","st","ur"].forEach(function(i){$(i).oninput=function(){clearTimeout(deb);deb=setTimeout(function(){load(true)},300)}});
+
+function poll(){
+  api("/api/citizen-reports-stats").then(function(s){
+    var n=0;(s.byStatus||[]).forEach(function(x){if(x.status==="Submitted")n=x.n});
+    $("nb").textContent=n;$("nb").hidden=!n;
+    document.title=(n?"("+n+") ":"")+"Citizen Reports Inbox - SWIDS";
+    if(lastNew!==null&&n>lastNew){
+      var d=n-lastNew;toast(d+" new citizen report"+(d>1?"s":""));beep();
+      if("Notification"in window&&Notification.permission==="granted")new Notification("SWIDS",{body:d+" new citizen report"+(d>1?"s":"")});
+      load(true);
+    }
+    lastNew=n;
+  }).catch(function(){});
+}
+$("al").onclick=function(){
+  if(!("Notification"in window)){toast("Alerts are not supported in this browser.");return}
+  Notification.requestPermission().then(function(p){toast(p==="granted"?"Alerts are on.":"Alerts are blocked in browser settings.")});
+};
+
+function closeDetail(){$("detail").style.display="none";load(true);poll()}
+function openReport(id){
+  api("/api/citizen-reports/"+id).then(function(r){
+    var x=r.report;
+    if(canEdit&&x.status==="Submitted"){
+      api("/api/citizen-reports/"+id,{method:"PATCH",body:{status:"Received"}}).then(function(){x.status="Received";render(x)}).catch(function(){render(x)});
+    } else render(x);
+  }).catch(function(e){if(e.message!=="auth")toast(e.message)});
+}
+function render(x){
+  var h='<button id="back">Back to inbox</button><h2>'+esc(x.title)+'</h2>'+
+  '<p class="m">'+esc(x.tracking_no)+' - '+esc(x.kebele)+(x.location_detail?' - '+esc(x.location_detail):'')+' - '+esc(x.category)+'</p>'+
+  (x.priority==="Urgent"?'<p><span class="pill urg">Urgent</span></p>':'')+
+  '<p>'+esc(x.description||"No description.").replace(/\n/g,"<br>")+'</p>'+
+  (x.phone||x.email?'<p class="m">Contact: '+esc(x.phone||"")+' '+esc(x.email||"")+'</p>':'<p class="m">The citizen chose not to share contact details.</p>');
+  if(x.photo_ids&&x.photo_ids.length){h+='<div class="ph">'+x.photo_ids.map(function(i){return'<a href="/api/citizen-report-photos/'+i+'" target="_blank"><img src="/api/citizen-report-photos/'+i+'" alt="Photo"></a>'}).join("")+'</div>'}
+  if(canEdit){
+    h+='<div class="f"><label>Status<select id="s2">'+STAT.map(function(s){return'<option'+(s===x.status?' selected':'')+'>'+s+'</option>'}).join("")+'</select></label>'+
+    '<label>Note (the citizen sees this when you tick the box)<textarea id="nt" rows="3"></textarea></label>'+
+    '<label><input type="checkbox" id="pb" checked> Show note to the citizen</label>'+
+    '<label>Due date<input type="date" id="dd" value="'+esc((x.due_date||"").slice(0,10))+'"></label>'+
+    '<label>Office or person in charge<input id="dp" value="'+esc(x.assigned_dept||"")+'"></label>'+
+    '<div><button id="am">Assign to me</button> <button class="pri" id="sv">Save changes</button></div></div>';
+  } else h+='<p class="m">Read-only view.</p>';
+  h+='<h3>History</h3><div class="hist">'+(x.updates||[]).map(function(u){return'<div><b>'+esc(u.status)+'</b>'+(u.is_public?'':' <span class="pill">internal</span>')+'<br>'+esc(u.note||"")+'<br><span class="m">'+new Date(u.created_at).toLocaleString()+(u.by_email?' - '+esc(u.by_email):'')+'</span></div>'}).join("")+'</div>';
+  $("din").innerHTML=h;$("detail").style.display="block";
+  $("back").onclick=closeDetail;
+  if(canEdit){
+    var save=function(extra){
+      var b={status:$("s2").value,note:$("nt").value,public:$("pb").checked,dueDate:$("dd").value,assignedDept:$("dp").value};
+      for(var k in extra)b[k]=extra[k];
+      api("/api/citizen-reports/"+x.id,{method:"PATCH",body:b}).then(function(){toast("Saved");openReport(x.id)}).catch(function(e){toast(e.message)});
+    };
+    $("sv").onclick=function(){save({})};
+    $("am").onclick=function(){save({assignedTo:me.email})};
+  }
+}
+start();
+</script>
+</body>
+</html>

@@ -55,6 +55,7 @@ button.main{width:100%;margin-top:14px;background:var(--accent);color:var(--on);
   <form class="card" id="f" novalidate>
     <label for="kebele" data-t="kebele"></label>
     <select id="kebele" required></select>
+    <input type="text" id="kebeleText" maxlength="100" hidden>
 
     <label for="cat" data-t="category"></label>
     <select id="cat" required></select>
@@ -150,6 +151,9 @@ function render(){
   document.documentElement.lang=lang;
   document.querySelectorAll("[data-t]").forEach(function(el){el.textContent=t[el.dataset.t]});
   fill($("kebele"),t.chooseK,kebeles.map(function(k){return{v:k,l:k}}),$("kebele").value);
+  // No Kebele list set up on the server yet: let the person type the Kebele name.
+  var free=!kebeles.length;
+  $("kebele").hidden=free;$("kebeleText").hidden=!free;$("kebeleText").placeholder=t.chooseK;
   fill($("cat"),t.chooseC,cats.map(function(c){return{v:c,l:catLabel(c)}}),$("cat").value);
   document.querySelectorAll(".lang button").forEach(function(b){b.setAttribute("aria-pressed",b.dataset.l===lang)});
   ["sent","formErr","status"].forEach(function(id){$(id).hidden=true});
@@ -194,14 +198,15 @@ $("f").onsubmit=function(e){
   if(busy)return;
   var t=T[lang];
   $("sent").hidden=true;$("formErr").hidden=true;
-  if(!$("kebele").value||!$("cat").value||!$("ttl").value.trim()||!$("desc").value.trim()){return show("formErr",t.need)}
+  var keb=kebeles.length?$("kebele").value:$("kebeleText").value.trim();
+  if(!keb||!$("cat").value||!$("ttl").value.trim()||!$("desc").value.trim()){return show("formErr",t.need)}
   var anon=$("anon").checked;
   if(!anon&&!$("phone").value.trim()){return show("formErr",t.needPhone)}
   busy=true;$("sendBtn").disabled=true;$("sendBtn").textContent=t.sending;
   var files=Array.prototype.slice.call($("photos").files,0,3);
   Promise.all(files.map(shrink)).then(function(photos){
     return api("/api/citizen-reports",{method:"POST",body:{
-      kebele:$("kebele").value,category:$("cat").value,title:$("ttl").value.trim(),
+      kebele:keb,category:$("cat").value,title:$("ttl").value.trim(),
       locationDetail:$("place").value.trim(),description:$("desc").value.trim(),
       priority:$("urgent").checked?"Urgent":"Normal",anonymous:anon,
       phone:anon?"":$("phone").value.trim(),email:anon?"":$("email").value.trim(),photos:photos}});

@@ -26,12 +26,13 @@
     table { width:100%; border-collapse:collapse; margin-top:12px; }
     th, td { text-align:left; padding:11px 8px; border-bottom:1px solid #eaecf0; vertical-align:top; }
     th { font-size:13px; color:#475467; }
-    .status { padding:4px 8px; border-radius:999px; background:#ecfdf3; color:#027a48; font-size:12px; }
+    .status { padding:4px 8px; border-radius:999px; background:#ecfdf3; color:#027a48; font-size:12px; white-space:nowrap; }
     .status.pending { background:#fff4e0; color:#93650a; }
     .status.inactive { background:#eaecf0; color:#475467; }
+    .status.returned { background:#fee4e2; color:#b42318; }
     .error { color:var(--danger); margin-top:8px; }
     .muted { color:var(--muted); }
-    .tabs { display:flex; gap:6px; margin-bottom:16px; }
+    .tabs { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
     .tab-btn { background:#eaecf0; color:#344054; padding:9px 16px; border-radius:8px; }
     .tab-btn.active { background:var(--primary); color:#fff; }
     .stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
@@ -48,6 +49,14 @@
     .rating-high { background:#ecfdf3; color:#027a48; }
     .rating-mid { background:#fff4e0; color:#93650a; }
     .rating-low { background:#fee4e2; color:#b42318; }
+    .report-card { border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:14px; background:#fff; }
+    .report-card h3 { margin:0 0 4px; font-size:17px; }
+    .report-details { white-space:pre-wrap; background:#f8f9fb; border:1px solid #eaecf0; border-radius:8px; padding:12px; margin:12px 0; }
+    .fb-item { border-left:3px solid var(--primary); background:#f0f7ff; border-radius:6px; padding:8px 10px; margin:6px 0; font-size:14px; }
+    .fb-item.officer { border-left-color:#93650a; background:#fff8ec; }
+    .fb-item .fb-meta { font-size:12px; color:var(--muted); margin-bottom:2px; }
+    .fb-text { white-space:pre-wrap; }
+    .report-card textarea { min-height:70px; }
     @media(max-width:700px) { .grid { grid-template-columns:1fr; } table { display:block; overflow:auto; white-space:nowrap; } }
   </style>
 </head>
@@ -74,6 +83,7 @@
     <div class="tabs">
       <button class="tab-btn active" data-tab="recordsTab">Records</button>
       <button class="tab-btn" data-tab="reportsTab">Reports &amp; Evaluation</button>
+      <button class="tab-btn" data-tab="officerTab" id="officerTabBtn">Officer Reports</button>
     </div>
 
     <div id="recordsTab">
@@ -202,6 +212,33 @@
         <div id="evalTableWrap"></div>
       </div>
     </div>
+
+    <!-- NEW: Officer Reports tab -->
+    <div id="officerTab" class="hidden">
+      <div class="card">
+        <div class="toolbar">
+          <div>
+            <h2>Officer reports</h2>
+            <p class="muted">Work reports submitted by sector officers, from all sectors.</p>
+            <span id="officerCount" class="muted"></span>
+          </div>
+          <div class="actions" style="margin-top:0">
+            <select id="officerFilterStatus" style="width:auto">
+              <option value="">All statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Returned">Returned</option>
+              <option value="Approved">Approved</option>
+            </select>
+            <select id="officerFilterSector" style="width:auto">
+              <option value="">All sectors</option>
+            </select>
+            <button id="refreshOfficerBtn" class="secondary">Refresh</button>
+          </div>
+        </div>
+        <div id="officerError" class="error"></div>
+        <div id="officerList"></div>
+      </div>
+    </div>
   </section>
 </main>
 
@@ -209,6 +246,7 @@
 const $ = id => document.getElementById(id);
 let records = [];
 let evaluations = [];
+let officerReports = [];
 const API_BASE = "";
 
 async function api(url, options = {}) {
@@ -233,13 +271,18 @@ function setLoggedIn(user) {
   $("logoutBtn").classList.toggle("hidden", !user);
 }
 
+async function loadAll() {
+  await loadRecords();
+  await loadEvaluations();
+  await loadSummary();
+  await loadOfficerReports();
+}
+
 async function checkAuth() {
   try {
     const data = await api("/api/me");
     setLoggedIn(data.user);
-    await loadRecords();
-    await loadEvaluations();
-    await loadSummary();
+    await loadAll();
   } catch {
     setLoggedIn(null);
   }
@@ -255,9 +298,7 @@ $("loginForm").addEventListener("submit", async e => {
     });
     setLoggedIn(data.user);
     $("password").value = "";
-    await loadRecords();
-    await loadEvaluations();
-    await loadSummary();
+    await loadAll();
   } catch (err) {
     $("loginError").textContent = err.message;
   }
@@ -272,11 +313,15 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
-    $("recordsTab").classList.toggle("hidden", btn.dataset.tab !== "recordsTab");
-    $("reportsTab").classList.toggle("hidden", btn.dataset.tab !== "reportsTab");
+    ["recordsTab", "reportsTab", "officerTab"].forEach(id => {
+      $(id).classList.toggle("hidden", btn.dataset.tab !== id);
+    });
     if (btn.dataset.tab === "reportsTab") {
       loadSummary();
       loadEvaluations();
+    }
+    if (btn.dataset.tab === "officerTab") {
+      loadOfficerReports();
     }
   });
 });
@@ -298,6 +343,7 @@ function statusClass(s) {
   const v = String(s || "").toLowerCase();
   if (v === "pending") return "pending";
   if (v === "inactive") return "inactive";
+  if (v === "returned") return "returned";
   return "";
 }
 
@@ -546,6 +592,108 @@ $("exportRecordsBtn").addEventListener("click", () => {
 $("exportEvalBtn").addEventListener("click", () => {
   window.open(API_BASE + "/api/reports/export/evaluations.csv", "_blank");
 });
+
+/* ---------------- Officer reports (new) ---------------- */
+
+async function loadOfficerReports() {
+  $("officerError").textContent = "";
+  try {
+    const data = await api("/api/officer-reports");
+    officerReports = data.reports || [];
+    populateOfficerSectors();
+    renderOfficerReports();
+  } catch (err) {
+    if (err.message.includes("Authentication")) { setLoggedIn(null); return; }
+    $("officerError").textContent = err.message;
+  }
+}
+
+function populateOfficerSectors() {
+  const current = $("officerFilterSector").value;
+  const sectors = [...new Set(officerReports.map(r => r.sector).filter(Boolean))].sort();
+  $("officerFilterSector").innerHTML = '<option value="">All sectors</option>' +
+    sectors.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join("");
+  if (sectors.includes(current)) $("officerFilterSector").value = current;
+}
+
+function renderOfficerReports() {
+  const pending = officerReports.filter(r => r.status === "Pending").length;
+  $("officerTabBtn").textContent = pending ? `Officer Reports (${pending} pending)` : "Officer Reports";
+
+  const fs = $("officerFilterStatus").value;
+  const fsec = $("officerFilterSector").value;
+  const list = officerReports.filter(r => (!fs || r.status === fs) && (!fsec || r.sector === fsec));
+
+  $("officerCount").textContent = `${list.length} report${list.length === 1 ? "" : "s"}`;
+  if (!list.length) {
+    $("officerList").innerHTML = '<p class="muted">No officer reports found.</p>';
+    return;
+  }
+
+  $("officerList").innerHTML = list.map(r => {
+    const fb = (r.feedback || []).map(f => `
+      <div class="fb-item ${f.role === "officer" ? "officer" : ""}">
+        <div class="fb-meta">${esc(f.by)} (${f.role === "officer" ? "officer" : "head/admin"}) · ${esc(new Date(f.createdAt).toLocaleString())}</div>
+        <div class="fb-text">${esc(f.text)}</div>
+      </div>`).join("");
+    return `
+      <div class="report-card">
+        <div class="toolbar">
+          <div>
+            <h3>${esc(r.title)}</h3>
+            <div class="muted">${esc(r.officerName || r.officerEmail)} · ${esc(r.sector)} · ${esc(r.period)} · submitted ${esc(new Date(r.createdAt).toLocaleDateString())}</div>
+          </div>
+          <span class="status ${statusClass(r.status)}">${esc(r.status)}</span>
+        </div>
+        <div class="report-details">${esc(r.details)}</div>
+        <div>${fb || '<p class="muted">No feedback yet.</p>'}</div>
+        <label style="margin-top:12px" for="fb-${esc(r.id)}">Feedback / reason</label>
+        <textarea id="fb-${esc(r.id)}" maxlength="2000" placeholder="Write feedback. Required when returning a report."></textarea>
+        <div class="actions">
+          <button class="secondary" onclick="sendOfficerFeedback('${esc(r.id)}')">Send feedback</button>
+          <button class="primary" onclick="decideOfficerReport('${esc(r.id)}','Approved')">Approve</button>
+          <button class="danger" onclick="decideOfficerReport('${esc(r.id)}','Returned')">Return for revision</button>
+        </div>
+        <div class="error" id="fberr-${esc(r.id)}"></div>
+      </div>`;
+  }).join("");
+}
+
+window.sendOfficerFeedback = async id => {
+  const text = $("fb-" + id).value.trim();
+  const err = $("fberr-" + id);
+  err.textContent = "";
+  if (!text) { err.textContent = "Write some feedback first."; return; }
+  try {
+    await api("/api/officer-reports/" + encodeURIComponent(id) + "/feedback", {
+      method: "POST",
+      body: JSON.stringify({ text })
+    });
+    await loadOfficerReports();
+  } catch (e) { err.textContent = e.message; }
+};
+
+window.decideOfficerReport = async (id, status) => {
+  const text = $("fb-" + id).value.trim();
+  const err = $("fberr-" + id);
+  err.textContent = "";
+  if (status === "Returned" && !text) {
+    err.textContent = "Explain what the officer should revise.";
+    return;
+  }
+  if (!confirm(status === "Approved" ? "Approve this report?" : "Return this report to the officer?")) return;
+  try {
+    await api("/api/officer-reports/" + encodeURIComponent(id) + "/decision", {
+      method: "POST",
+      body: JSON.stringify({ status, text })
+    });
+    await loadOfficerReports();
+  } catch (e) { err.textContent = e.message; }
+};
+
+$("refreshOfficerBtn").addEventListener("click", loadOfficerReports);
+$("officerFilterStatus").addEventListener("change", renderOfficerReports);
+$("officerFilterSector").addEventListener("change", renderOfficerReports);
 
 checkAuth();
 </script>

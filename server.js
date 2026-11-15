@@ -84,7 +84,8 @@ app.get("/sw.js", (req, res) => res.sendFile(path.join(__dirname, "sw.js")));
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  // Mobile networks often share one IP address among many users.
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many login attempts. Try again later." }
@@ -598,7 +599,10 @@ app.get("/api/health", wrap(async (req, res) => {
 }));
 
 app.post("/api/login", loginLimiter, wrap(async (req, res) => {
-  const email = cleanText(req.body.email, 200).toLowerCase();
+  const email = String(req.body.email || "")
+    .replace(/[\s​-‍﻿]/g, "")
+    .slice(0, 200)
+    .toLowerCase();
   const password = String(req.body.password || "");
 
   // Always run one bcrypt compare so a wrong email and a wrong password

@@ -80,8 +80,7 @@ function beep(){try{var a=new (window.AudioContext||window.webkitAudioContext)()
 function ago(d){var s=(Date.now()-new Date(d))/1000;if(s<60)return"just now";if(s<3600)return Math.floor(s/60)+" min ago";if(s<86400)return Math.floor(s/3600)+" h ago";return new Date(d).toLocaleDateString()}
 
 $("go").onclick=function(){
-  api("/api/login",{method:"POST",body:{email:$("em").value.replace(/[\s​-‍﻿]/g,"").toLowerCase(),password:$("pw").value}}).then(start).catch(function(e){$("le").textContent=e.message==="auth"?"Wrong email or password.":e.message});
-};
+  api("/api/login",{method:"POST",body:{email:$("em").value.replace(/[\s\u200B-\u200D\uFEFF]/g,"").toLowerCase(),password:$("pw").value}}).then(start).catch(function(e){$("le").textContent=e.message==="auth"?"Wrong email or password.":e.message});
 
 function start(){
   api("/api/me").then(function(r){

@@ -599,8 +599,8 @@ app.get("/api/health", wrap(async (req, res) => {
 }));
 
 app.post("/api/login", loginLimiter, wrap(async (req, res) => {
-  const email = String(req.body.email || "")
-    .replace(/[\s​-‍﻿]/g, "")
+    const email = String(req.body.email || "")
+    .replace(/[\s\u200B-\u200D\uFEFF]/g, "")
     .slice(0, 200)
     .toLowerCase();
   const password = String(req.body.password || "");

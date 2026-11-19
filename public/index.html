@@ -498,7 +498,7 @@ $("loginForm").addEventListener("submit", async e => {
       method: "POST",
       body: JSON.stringify({
         // Remove spaces and hidden characters that phone keyboards can add.
-        email: $("email").value.replace(/[\s​-‍﻿]/g, "").toLowerCase(),
+        email: $("email").value.replace(/[\s\u200B-\u200D\uFEFF]/g, "").toLowerCase(),
         password: $("password").value
       })
     });

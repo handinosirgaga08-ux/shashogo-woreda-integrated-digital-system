@@ -1,4 +1,4 @@
-const CACHE = "swids-v3";
+const CACHE = "swids-v4";
 const SHELL = ["/admin_panel.html", "/manifest.json", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", e => {

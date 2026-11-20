@@ -14,6 +14,7 @@ h1{font-size:18px;margin:0;flex:1}
 .badge[hidden]{display:none}
 button,select,input,textarea{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
 button{cursor:pointer}button.pri{background:var(--ac);color:var(--ink);border:0;font-weight:700}
+button:disabled{opacity:.6;cursor:default}
 button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--ac)}
 .bar{display:flex;gap:8px;padding:10px 14px;flex-wrap:wrap}.bar input{flex:1;min-width:140px}
 main{max-width:760px;margin:0 auto}
@@ -29,17 +30,22 @@ main{max-width:760px;margin:0 auto}
 .f{display:grid;gap:8px;margin:12px 0}
 .ph{display:flex;gap:8px;flex-wrap:wrap}.ph img{width:96px;height:96px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
 .hist{border-left:2px solid var(--line);margin:10px 0;padding-left:12px}.hist div{margin-bottom:8px}
-#toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ac);color:var(--ink);font-weight:700;padding:10px 16px;border-radius:10px;display:none;z-index:20}
+#toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ac);color:var(--ink);font-weight:700;padding:10px 16px;border-radius:10px;display:none;z-index:20;max-width:90%}
 #login{max-width:340px;margin:60px auto;padding:14px;display:none}#login input{width:100%;margin-bottom:8px}
+#boot{padding:60px 14px;text-align:center;color:var(--mu)}
 .empty{padding:40px 14px;text-align:center;color:var(--mu)}
+.err{color:var(--red)}
 </style>
 </head>
 <body>
+<div id="boot">Loading…</div>
+<noscript><p class="empty">Please turn on JavaScript to use this page.</p></noscript>
+
 <div id="login">
   <h1>Sign in</h1><p class="m">Sign in with your SWIDS staff account to see citizen reports.</p>
   <input id="em" type="email" placeholder="Email" autocomplete="username">
   <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
-  <button class="pri" id="go" style="width:100%">Sign in</button><p id="le" class="m"></p>
+  <button class="pri" id="go" style="width:100%">Sign in</button><p id="le" class="m err" role="alert"></p>
 </div>
 
 <div id="app" style="display:none">
@@ -58,12 +64,26 @@ main{max-width:760px;margin:0 auto}
 </div>
 
 <div id="detail"><div class="in" id="din"></div></div>
-<div id="toast"></div>
+<div id="toast" role="status"></div>
+
+<!-- Separate script: still runs if the main script has an error, so the page is never silently blank -->
+<script>
+setTimeout(function(){
+  var b=document.getElementById("boot");
+  if(!window.__ready&&b&&b.style.display!=="none"){
+    b.innerHTML='This page could not start.<br>Please reload, or try again later.<br><br><button onclick="location.reload()">Reload</button>';
+  }
+},6000);
+window.addEventListener("error",function(){
+  var b=document.getElementById("boot");
+  if(!window.__ready&&b){b.style.display="block";b.innerHTML='Something went wrong loading this page.<br><br><button onclick="location.reload()">Reload</button>';}
+});
+</script>
 
 <script>
 var $=function(i){return document.getElementById(i)};
 var esc=function(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})};
-var me=null,page=1,pages=1,lastNew=null,timer=null,canEdit=false;
+var me=null,page=1,pages=1,lastNew=null,timer=null,canEdit=false,reqId=0;
 var STAT=["Submitted","Received","In progress","On hold","Resolved","Rejected"];
 
 function api(url,opt){
@@ -71,29 +91,48 @@ function api(url,opt){
   if(opt.body&&typeof opt.body!=="string"){opt.body=JSON.stringify(opt.body);opt.headers={"Content-Type":"application/json"};}
   return fetch(url,opt).then(function(r){
     if(r.status===401){showLogin();throw new Error("auth");}
-    return r.json().then(function(j){if(!r.ok)throw new Error(j.error||"Error");return j;});
-  });
+    return r.json().catch(function(){return{}}).then(function(j){if(!r.ok)throw new Error(j.error||"Error "+r.status);return j;});
+  },function(){throw new Error("No connection. Check your internet and try again.")});
 }
 function toast(t){var e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(e._t);e._t=setTimeout(function(){e.style.display="none"},3500)}
-function showLogin(){$("app").style.display="none";$("login").style.display="block";clearInterval(timer)}
+function showLogin(){
+  $("boot").style.display="none";$("app").style.display="none";$("detail").style.display="none";
+  $("login").style.display="block";clearInterval(timer);window.__ready=true;
+}
 function beep(){try{var a=new (window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=880;g.gain.value=.15;o.start();o.stop(a.currentTime+.25)}catch(e){}}
-function ago(d){var s=(Date.now()-new Date(d))/1000;if(s<60)return"just now";if(s<3600)return Math.floor(s/60)+" min ago";if(s<86400)return Math.floor(s/3600)+" h ago";return new Date(d).toLocaleDateString()}
+function ago(d){var t=new Date(d).getTime();if(isNaN(t))return"";var s=(Date.now()-t)/1000;if(s<60)return"just now";if(s<3600)return Math.floor(s/60)+" min ago";if(s<86400)return Math.floor(s/3600)+" h ago";return new Date(d).toLocaleDateString()}
 
-$("go").onclick=function(){
-  api("/api/login",{method:"POST",body:{email:$("em").value.replace(/[\s\u200B-\u200D\uFEFF]/g,"").toLowerCase(),password:$("pw").value}}).then(start).catch(function(e){$("le").textContent=e.message==="auth"?"Wrong email or password.":e.message});
+function doLogin(){
+  var btn=$("go");
+  $("le").textContent="";
+  btn.disabled=true;btn.textContent="Signing in…";
+  api("/api/login",{method:"POST",body:{email:$("em").value.replace(/[\s\u200B-\u200D\uFEFF]/g,"").toLowerCase(),password:$("pw").value}})
+    .then(start)
+    .catch(function(e){$("le").textContent=e.message==="auth"?"Wrong email or password.":e.message})
+    .then(function(){btn.disabled=false;btn.textContent="Sign in"});
+}
+$("go").onclick=doLogin;
+$("pw").onkeydown=$("em").onkeydown=function(e){if(e.key==="Enter")doLogin()};
 
 function start(){
-  api("/api/me").then(function(r){
+  return api("/api/me").then(function(r){
     me=r.user;canEdit=me.role==="admin"||me.role==="kebele_officer";
-    $("login").style.display="none";$("app").style.display="block";
+    $("boot").style.display="none";$("login").style.display="none";$("app").style.display="block";
+    window.__ready=true;
     load(true);poll();clearInterval(timer);timer=setInterval(poll,30000);
-  }).catch(function(){});
+  }).catch(function(e){
+    if(e.message!=="auth"){
+      showLogin();$("le").textContent=e.message;
+    }
+  });
 }
 
 function load(reset){
+  var my=++reqId;
   if(reset){page=1;$("list").innerHTML="";}
   var p=new URLSearchParams({page:page,limit:25,sort:"newest",q:$("q").value,status:$("st").value,priority:$("ur").value});
   api("/api/citizen-reports?"+p).then(function(r){
+    if(my!==reqId)return; // a newer request replaced this one
     pages=r.pages;
     if(reset&&!r.reports.length)$("list").innerHTML='<div class="empty">No reports match. New citizen reports will appear here.</div>';
     r.reports.forEach(function(x){
@@ -106,7 +145,12 @@ function load(reset){
       $("list").appendChild(b);
     });
     $("more").hidden=page>=pages;
-  }).catch(function(e){if(e.message!=="auth")toast(e.message)});
+  }).catch(function(e){
+    if(my!==reqId||e.message==="auth")return;
+    if(reset)$("list").innerHTML='<div class="empty err">Could not load reports.<br>'+esc(e.message)+'<br><br><button id="retry">Try again</button></div>';
+    else{page--;toast(e.message)}
+    var rt=$("retry");if(rt)rt.onclick=function(){load(true)};
+  });
 }
 $("more").onclick=function(){page++;load(false)};
 var deb;["q","st","ur"].forEach(function(i){$(i).oninput=function(){clearTimeout(deb);deb=setTimeout(function(){load(true)},300)}});
@@ -119,17 +163,22 @@ function poll(){
     if(lastNew!==null&&n>lastNew){
       var d=n-lastNew;toast(d+" new citizen report"+(d>1?"s":""));beep();
       if("Notification"in window&&Notification.permission==="granted")new Notification("SWIDS",{body:d+" new citizen report"+(d>1?"s":"")});
-      load(true);
+      if($("detail").style.display!=="block")load(true);
     }
     lastNew=n;
   }).catch(function(){});
 }
+// refresh right away when the person comes back to the tab
+document.addEventListener("visibilitychange",function(){if(!document.hidden&&me)poll()});
+
 $("al").onclick=function(){
   if(!("Notification"in window)){toast("Alerts are not supported in this browser.");return}
   Notification.requestPermission().then(function(p){toast(p==="granted"?"Alerts are on.":"Alerts are blocked in browser settings.")});
 };
 
 function closeDetail(){$("detail").style.display="none";load(true);poll()}
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&$("detail").style.display==="block")closeDetail()});
+
 function openReport(id){
   api("/api/citizen-reports/"+id).then(function(r){
     var x=r.report;
@@ -144,7 +193,7 @@ function render(x){
   (x.priority==="Urgent"?'<p><span class="pill urg">Urgent</span></p>':'')+
   '<p>'+esc(x.description||"No description.").replace(/\n/g,"<br>")+'</p>'+
   (x.phone||x.email?'<p class="m">Contact: '+esc(x.phone||"")+' '+esc(x.email||"")+'</p>':'<p class="m">The citizen chose not to share contact details.</p>');
-  if(x.photo_ids&&x.photo_ids.length){h+='<div class="ph">'+x.photo_ids.map(function(i){return'<a href="/api/citizen-report-photos/'+i+'" target="_blank"><img src="/api/citizen-report-photos/'+i+'" alt="Photo"></a>'}).join("")+'</div>'}
+  if(x.photo_ids&&x.photo_ids.length){h+='<div class="ph">'+x.photo_ids.map(function(i){return'<a href="/api/citizen-report-photos/'+encodeURIComponent(i)+'" target="_blank" rel="noopener"><img src="/api/citizen-report-photos/'+encodeURIComponent(i)+'" alt="Photo" loading="lazy"></a>'}).join("")+'</div>'}
   if(canEdit){
     h+='<div class="f"><label>Status<select id="s2">'+STAT.map(function(s){return'<option'+(s===x.status?' selected':'')+'>'+s+'</option>'}).join("")+'</select></label>'+
     '<label>Note (the citizen sees this when you tick the box)<textarea id="nt" rows="3"></textarea></label>'+
@@ -154,13 +203,17 @@ function render(x){
     '<div><button id="am">Assign to me</button> <button class="pri" id="sv">Save changes</button></div></div>';
   } else h+='<p class="m">Read-only view.</p>';
   h+='<h3>History</h3><div class="hist">'+(x.updates||[]).map(function(u){return'<div><b>'+esc(u.status)+'</b>'+(u.is_public?'':' <span class="pill">internal</span>')+'<br>'+esc(u.note||"")+'<br><span class="m">'+new Date(u.created_at).toLocaleString()+(u.by_email?' - '+esc(u.by_email):'')+'</span></div>'}).join("")+'</div>';
-  $("din").innerHTML=h;$("detail").style.display="block";
+  $("din").innerHTML=h;$("detail").style.display="block";$("detail").scrollTop=0;
   $("back").onclick=closeDetail;
   if(canEdit){
     var save=function(extra){
       var b={status:$("s2").value,note:$("nt").value,public:$("pb").checked,dueDate:$("dd").value,assignedDept:$("dp").value};
       for(var k in extra)b[k]=extra[k];
-      api("/api/citizen-reports/"+x.id,{method:"PATCH",body:b}).then(function(){toast("Saved");openReport(x.id)}).catch(function(e){toast(e.message)});
+      $("sv").disabled=$("am").disabled=true; // stop double taps
+      api("/api/citizen-reports/"+x.id,{method:"PATCH",body:b}).then(function(){toast("Saved");openReport(x.id)}).catch(function(e){
+        $("sv").disabled=$("am").disabled=false;
+        if(e.message!=="auth")toast(e.message);
+      });
     };
     $("sv").onclick=function(){save({})};
     $("am").onclick=function(){save({assignedTo:me.email})};

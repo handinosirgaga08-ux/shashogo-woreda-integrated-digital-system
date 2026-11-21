@@ -53,10 +53,6 @@ button.main{width:100%;margin-top:14px;background:var(--accent);color:var(--on);
   </div>
 
   <form class="card" id="f" novalidate>
-    <label for="kebele" data-t="kebele"></label>
-    <select id="kebele" required></select>
-    <input type="text" id="kebeleText" maxlength="100" hidden>
-
     <label for="cat" data-t="category"></label>
     <select id="cat" required></select>
 
@@ -98,28 +94,28 @@ button.main{width:100%;margin-top:14px;background:var(--accent);color:var(--on);
 
 <script>
 var T={
-en:{title:"Report a problem",intro:"Tell the Woreda office about an issue in your Kebele. You will get a tracking number.",
-kebele:"Kebele",category:"Category",ttl:"Title",place:"Place or landmark",opt:"(optional)",desc:"What happened?",
+en:{title:"Report a problem",intro:"Tell the Woreda office about an issue. You will get a tracking number.",
+category:"Category",ttl:"Title",place:"Place or landmark",opt:"(optional)",desc:"What happened?",
 photos:"Photos",photosHint:"(up to 3, optional)",urgent:"This is urgent",anon:"Send without my phone number",phone:"Phone number",
 send:"Send report",track:"Track a report",tn:"Tracking number",check:"Check status",
-chooseK:"Choose a Kebele",chooseC:"Choose a category",
-need:"Please fill in: Kebele, Category, Title and What happened.",needPhone:"Enter your phone number, or tick “Send without my phone number”.",
+chooseC:"Choose a category",
+need:"Please fill in: Category, Title and What happened.",needPhone:"Enter your phone number, or tick “Send without my phone number”.",
 maxPhotos:"You can add up to 3 photos only.",sentMsg:"Report sent. Your tracking number is",keep:"Save it to check the status later.",
 st:"Status",received:"Received by the Woreda office",nf:"No report found with this number. Check it and try again.",enterTn:"Enter a tracking number.",
 urg:"Marked urgent",
 email:"Email",sending:"Sending…",loadFail:"Could not load the form options. Check your connection and reload the page.",netFail:"Could not reach the server. Check your connection and try again. Your answers are still here.",badPhoto:"One of the photos could not be read. Try a different photo."},
-am:{title:"ችግር ያሳውቁ",intro:"ስለ ቀበሌዎ ችግር ለወረዳ ጽ/ቤት ያሳውቁ። የመከታተያ ቁጥር ያገኛሉ።",
-kebele:"ቀበሌ",category:"ምድብ",ttl:"ርዕስ",place:"ቦታ ወይም የቦታ ምልክት",opt:"(አማራጭ)",desc:"ምን ተፈጠረ?",
+am:{title:"ችግር ያሳውቁ",intro:"ስለ ችግር ለወረዳ ጽ/ቤት ያሳውቁ። የመከታተያ ቁጥር ያገኛሉ።",
+category:"ምድብ",ttl:"ርዕስ",place:"ቦታ ወይም የቦታ ምልክት",opt:"(አማራጭ)",desc:"ምን ተፈጠረ?",
 photos:"ፎቶዎች",photosHint:"(እስከ 3፣ አማራጭ)",urgent:"አስቸኳይ ነው",anon:"ያለ ስልክ ቁጥሬ ላክ",phone:"ስልክ ቁጥር",
 send:"ሪፖርት ላክ",track:"ሪፖርት ተከታተል",tn:"የመከታተያ ቁጥር",check:"ሁኔታ ተመልከት",
-chooseK:"ቀበሌ ይምረጡ",chooseC:"ምድብ ይምረጡ",
-need:"እባክዎ ይሙሉ፦ ቀበሌ፣ ምድብ፣ ርዕስ እና ምን ተፈጠረ።",needPhone:"ስልክ ቁጥርዎን ያስገቡ ወይም “ያለ ስልክ ቁጥሬ ላክ” ይምረጡ።",
+chooseC:"ምድብ ይምረጡ",
+need:"እባክዎ ይሙሉ፦ ምድብ፣ ርዕስ እና ምን ተፈጠረ።",needPhone:"ስልክ ቁጥርዎን ያስገቡ ወይም “ያለ ስልክ ቁጥሬ ላክ” ይምረጡ።",
 maxPhotos:"እስከ 3 ፎቶ ብቻ ማያያዝ ይችላሉ።",sentMsg:"ሪፖርትዎ ተልኳል። የመከታተያ ቁጥርዎ፦",keep:"ሁኔታውን ለመከታተል ያስቀምጡት።",
 st:"ሁኔታ",received:"በወረዳ ጽ/ቤት ደርሷል",nf:"በዚህ ቁጥር የተመዘገበ ሪፖርት አልተገኘም። ቁጥሩን አረጋግጠው እንደገና ይሞክሩ።",enterTn:"የመከታተያ ቁጥር ያስገቡ።",
 urg:"አስቸኳይ ተብሎ ተመዝግቧል",
 email:"ኢሜይል",sending:"በመላክ ላይ…",loadFail:"የቅጹን አማራጮች መጫን አልተቻለም። ግንኙነትዎን አረጋግጠው ገጹን እንደገና ይጫኑ።",netFail:"ከአገልጋዩ ጋር መገናኘት አልተቻለም። ግንኙነትዎን አረጋግጠው እንደገና ይሞክሩ። የሞሉት መረጃ አልጠፋም።",badPhoto:"አንዱን ፎቶ ማንበብ አልተቻለም። ሌላ ፎቶ ይሞክሩ።"}
 };
-var lang="en", kebeles=[], cats=[], busy=false;
+var lang="en", cats=[], busy=false;
 var $=function(id){return document.getElementById(id)};
 var CAT_AM={"Service complaint":"የአገልግሎት ቅሬታ","Infrastructure":"መሠረተ ልማት","Water":"ውሃ","Road and transport":"መንገድና ትራንስፖርት","Education":"ትምህርት","Security":"ደህንነት","Health":"ጤና","Agriculture":"ግብርና","Suggestion":"አስተያየት","Other":"ሌላ"};
 var ST_AM={"Submitted":"ተልኳል","Received":"በወረዳ ጽ/ቤት ደርሷል","In progress":"በሂደት ላይ","On hold":"ለጊዜው ቆሟል","Resolved":"ተፈትቷል","Rejected":"ውድቅ ተደርጓል"};
@@ -150,18 +146,12 @@ function render(){
   var t=T[lang];
   document.documentElement.lang=lang;
   document.querySelectorAll("[data-t]").forEach(function(el){el.textContent=t[el.dataset.t]});
-  fill($("kebele"),t.chooseK,kebeles.map(function(k){return{v:k,l:k}}),$("kebele").value);
-  // No Kebele list set up on the server yet: let the person type the Kebele name.
-  var free=!kebeles.length;
-  $("kebele").hidden=free;$("kebeleText").hidden=!free;$("kebeleText").placeholder=t.chooseK;
   fill($("cat"),t.chooseC,cats.map(function(c){return{v:c,l:catLabel(c)}}),$("cat").value);
   document.querySelectorAll(".lang button").forEach(function(b){b.setAttribute("aria-pressed",b.dataset.l===lang)});
   ["sent","formErr","status"].forEach(function(id){$(id).hidden=true});
 }
 function loadOptions(){
-  var okK=api("/api/public/kebeles").then(function(r){kebeles=r.kebeles||[]});
-  var okC=api("/api/public/report-options").then(function(r){cats=r.categories||[]});
-  return Promise.all([okK,okC]).then(render).catch(function(){
+  return api("/api/public/report-options").then(function(r){cats=r.categories||[]}).then(render).catch(function(){
     render();show("formErr",T[lang].loadFail);
   });
 }
@@ -198,15 +188,14 @@ $("f").onsubmit=function(e){
   if(busy)return;
   var t=T[lang];
   $("sent").hidden=true;$("formErr").hidden=true;
-  var keb=kebeles.length?$("kebele").value:$("kebeleText").value.trim();
-  if(!keb||!$("cat").value||!$("ttl").value.trim()||!$("desc").value.trim()){return show("formErr",t.need)}
+  if(!$("cat").value||!$("ttl").value.trim()||!$("desc").value.trim()){return show("formErr",t.need)}
   var anon=$("anon").checked;
   if(!anon&&!$("phone").value.trim()){return show("formErr",t.needPhone)}
   busy=true;$("sendBtn").disabled=true;$("sendBtn").textContent=t.sending;
   var files=Array.prototype.slice.call($("photos").files,0,3);
   Promise.all(files.map(shrink)).then(function(photos){
     return api("/api/citizen-reports",{method:"POST",body:{
-      kebele:keb,category:$("cat").value,title:$("ttl").value.trim(),
+      kebele:"Not specified",category:$("cat").value,title:$("ttl").value.trim(),
       locationDetail:$("place").value.trim(),description:$("desc").value.trim(),
       priority:$("urgent").checked?"Urgent":"Normal",anonymous:anon,
       phone:anon?"":$("phone").value.trim(),email:anon?"":$("email").value.trim(),photos:photos}});

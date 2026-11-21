@@ -10,6 +10,7 @@ const TYPES = ["General", "Emergency", "Event", "Service notice"];
 const WHOLE = "Whole Woreda";
 const ALL_KEBELES = "All Kebeles";
 const ALL_SECTORS = "All Sectors";
+const NO_KEBELE = "Not specified"; // used when the citizen form does not ask for a Kebele
 
 async function initTables(pool) {
   await pool.query(`
@@ -111,13 +112,14 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
       ? next()
       : res.status(403).json({ error: "Staff access required." });
 
-  // admin and sector heads see all; kebele officer only their kebele; no kebele assigned = nothing.
+  // admin and sector heads see all; kebele officer sees their kebele plus reports with no Kebele given;
+  // no kebele assigned = nothing.
   // `col` lets callers qualify the column (e.g. "r.kebele") when the query uses a table alias.
   function scope(user, params, col = "kebele") {
     if (user.role === "admin" || user.role === "sector_head") return "TRUE";
     if (!user.kebele) return "FALSE";
     params.push(user.kebele);
-    return `${col} = $${params.length}`;
+    return `(${col} = $${params.length} OR ${col} = '${NO_KEBELE}')`;
   }
   // Returns an ISO string, or null for empty input. Returns undefined when the value is present but not a valid date.
   const toDate = v => {
@@ -174,9 +176,9 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
   // ---- public: submit a report (no login) ----
   app.post("/api/citizen-reports", submitLimiter, wrap(async (req, res) => {
     const b = req.body || {};
-    const title = cleanText(b.title, 150), kebele = cleanText(b.kebele, 100);
+    // Kebele is optional: the citizen form no longer asks for it.
+    const title = cleanText(b.title, 150), kebele = cleanText(b.kebele, 100) || NO_KEBELE;
     if (!title) return res.status(400).json({ error: "Title is required." });
-    if (!kebele || !(await kebeleExists(kebele))) return res.status(400).json({ error: "Choose a Kebele from the list." });
     if (!CATEGORIES.includes(b.category)) return res.status(400).json({ error: "Choose a valid category." });
     const anonymous = Boolean(b.anonymous);
     const phone = anonymous ? null : (cleanText(b.phone, 20).replace(/\s+/g, "") || null);
@@ -455,7 +457,7 @@ function mount(app, { pool, wrap, requireAuth, cleanText }) {
     if (!Number.isInteger(id)) return res.status(400).json({ error: "Invalid id." });
     const r = (await pool.query(
       `SELECT p.data, c.kebele FROM report_photos p JOIN citizen_reports c ON c.id = p.report_id WHERE p.id = $1`, [id])).rows[0];
-    if (!r || (req.user.role === "kebele_officer" && r.kebele !== req.user.kebele)) return res.status(404).json({ error: "Not found." });
+    if (!r || (req.user.role === "kebele_officer" && r.kebele !== req.user.kebele && r.kebele !== NO_KEBELE)) return res.status(404).json({ error: "Not found." });
     res.set({ "Content-Type": "image/jpeg", "Cache-Control": "private, max-age=3600", "X-Content-Type-Options": "nosniff" });
     res.send(r.data);
   }));

@@ -858,7 +858,7 @@ app.put("/api/records/:id", requireAuth, wrap(async (req, res) => {
   res.json({ record: rowToRecord(rows[0]) });
 }));
 
-app.delete("/api/records/:id", requireAuth, wrap(async (req, res) => {
+app.delete("/api/records/:id", requireAuth, requireAdmin, wrap(async (req, res) => {
   const params = [req.params.id];
   const scope = scopeClause(req.user, params);
   const { rowCount } = await pool.query(`DELETE FROM records WHERE id = $1 AND ${scope}`, params);
@@ -916,7 +916,7 @@ app.put("/api/evaluations/:id", requireAuth, wrap(async (req, res) => {
   res.json({ evaluation: rowToEvaluation(rows[0]) });
 }));
 
-app.delete("/api/evaluations/:id", requireAuth, wrap(async (req, res) => {
+app.delete("/api/evaluations/:id", requireAuth, requireAdmin, wrap(async (req, res) => {
   const params = [req.params.id];
   const scope = evalScopeClause(req.user, params);
   const { rowCount } = await pool.query(`DELETE FROM evaluations WHERE id = $1 AND ${scope}`, params);

@@ -103,8 +103,7 @@ button{font:inherit;font-weight:600;border-radius:8px;padding:11px 16px;cursor:p
 
 <script>
 // Edit the sector list to match the official woreda structure.
-var SECTORS=["ግብርና - Agriculture", "መስኖና ቆላማ አካባቢ ልማት - Irrigation and Lowland Development", "ውሃና ኢነርጂ - Water and Energy", "መንገድና ትራንስፖርት (ሎጂስቲክስ) - Roads and Transport (Logistics)", "ከተማና መሠረተ ልማት - Urban and Infrastructure Development", "ኢኖቬሽንና ቴክኖሎጂ - Innovation and Technology", "ትምህርት - Education", "ጤና - Health", "ሥራና ክህሎት - Labour and Skills", "ሴቶች፣ ሕፃናትና ማኅበራዊ ጉዳይ - Women, Children and Social Affairs", "ባህልና ቱሪዝም - Culture and Tourism", "ወጣቶችና ስፖርት - Youth and Sports", "ንግድና ቀጣናዊ ትስስር - Trade and Regional Integration", "ኢንዱስትሪና ኢንቨስትመንት - Industry and Investment", "ማዕድን - Mining", "ፋይናንስ - Finance", "ገቢ (ታክስ) - Revenue (Tax)", "ዕቅድና ልማት - Planning and Development", "ፍትሕ - Justice", "ሰላምና ደኅንነት - Peace and Security", "መሬት አስተዳደርና አካባቢ - Land Administration and Environment", "ሲቪል ሰርቪስና መልካም አስተዳደር - Civil Service and Good Governance", "መሬትና መኖሪያ ቤት - Land and Housing", "ኤሌክትሪክ - Electricity", "ቴሌኮም - Telecom", "ፖሊስና ደኅንነት - Police and Security", "ሲቪል ምዝገባ (ወሳኝ ኩነቶችና መታወቂያ) - Civil Registration (Vital Events and ID)", "አካባቢ - Environment", "ብሔራዊ ስትራቴጂክ ጉዳዮች (ዕቅድ) - National Strategic Affairs (Planning)", "ሰላም - Peace", "የአገልግሎት ቅሬታ - Service complaint", "አስተያየት - Suggestion", "ሌላ - Other"];
-
+var SECTORS=[];
 function fill(id,list,ph){
   var s=document.getElementById(id);
   s.innerHTML='<option value="">'+ph+'</option>'+list.map(function(v){return '<option>'+v+'</option>'}).join('');

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Import sectors</title>
+<style>
+body{font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:16px;background:#f4f6f8;color:#1b2a3a}
+.card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+button{background:#1565a8;color:#fff;border:0;border-radius:8px;padding:12px 18px;font-size:16px;margin-top:12px}
+button:disabled{opacity:.5}
+ol{padding-left:22px;font-size:14px;line-height:1.5;max-height:34vh;overflow:auto}
+#log{white-space:pre-wrap;font-size:13px;margin-top:14px;max-height:40vh;overflow:auto}
+.muted{color:#5b6b7b;font-size:14px}
+</style>
+</head>
+<body>
+<div class="card">
+<h2>Import sectors</h2>
+<p id="status">Checking login...</p>
+<p class="muted">These sectors will be added to Setup &rarr; Sectors. Sectors that already exist are skipped.</p>
+<ol id="list"></ol>
+<p class="muted">Optional: to use your own list instead, choose a CSV file with the columns <b>name_am, name_en</b>.</p>
+<input type="file" id="file" accept=".csv,text/csv">
+<div><button id="go" disabled>Import</button></div>
+<div id="log"></div>
+</div>
+<script>
+var DEFAULT_SECTORS = ["ግብርና - Agriculture", "እንስሳትና ዓሣ ሀብት - Livestock and Fisheries", "መስኖና ቆላማ አካባቢ ልማት - Irrigation and Lowland Development", "የተፈጥሮ ሀብት - Natural Resources", "ትምህርት - Education", "ጤና - Health", "ፋይናንስ - Finance", "ገቢ - Revenue", "ዕቅድና ልማት - Planning and Development", "ንግድና ገበያ ልማት - Trade and Market Development", "ኢንዱስትሪና ኢንቨስትመንት - Industry and Investment", "ሥራና ክህሎት - Labour and Skills", "ሴቶች፣ ሕፃናትና ማኅበራዊ ጉዳይ - Women, Children and Social Affairs", "ወጣቶችና ስፖርት - Youth and Sports", "ባህልና ቱሪዝም - Culture and Tourism", "ውሃና ኢነርጂ - Water and Energy", "ከተማና መሠረተ ልማት - Urban Development and Infrastructure", "መሬት አስተዳደር - Land Administration", "መንገድና ትራንስፖርት - Roads and Transport", "ፍትሕ - Justice", "ሰላምና ደኅንነት - Peace and Security", "ሲቪል ሰርቪስና መልካም አስተዳደር - Civil Service and Good Governance", "ኅብረት ሥራ - Cooperatives", "ኢኖቬሽንና ቴክኖሎጂ - Innovation and Technology", "ኮሙኒኬሽን - Communication"];
+
+var sectors = DEFAULT_SECTORS.slice();
+var isAdmin = false;
+var logEl = document.getElementById("log");
+function log(t){ logEl.textContent += t + "\n"; logEl.scrollTop = logEl.scrollHeight; }
+
+function showList(){
+  var ol = document.getElementById("list");
+  ol.innerHTML = "";
+  sectors.forEach(function(s){
+    var li = document.createElement("li");
+    li.textContent = s;
+    ol.appendChild(li);
+  });
+  document.getElementById("go").disabled = !(isAdmin && sectors.length);
+}
+
+function parseCsv(text){
+  text = text.replace(/^﻿/, "");
+  var out = [], row = [], cell = "", q = false;
+  for (var i = 0; i < text.length; i++){
+    var c = text[i];
+    if (q){
+      if (c === '"' && text[i+1] === '"'){ cell += '"'; i++; }
+      else if (c === '"'){ q = false; }
+      else cell += c;
+    } else if (c === '"'){ q = true; }
+    else if (c === ","){ row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r"){
+      if (c === "\r" && text[i+1] === "\n") i++;
+      row.push(cell); cell = "";
+      if (row.some(function(x){ return x.trim() !== ""; })) out.push(row);
+      row = [];
+    } else cell += c;
+  }
+  row.push(cell);
+  if (row.some(function(x){ return x.trim() !== ""; })) out.push(row);
+  return out;
+}
+
+function api(method, url, body){
+  return fetch(url, {
+    method: method,
+    headers: {"Content-Type": "application/json"},
+    body: body ? JSON.stringify(body) : undefined,
+    credentials: "same-origin"
+  }).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(j){ return {ok: r.ok, status: r.status, data: j}; });
+  });
+}
+
+api("GET", "/api/me").then(function(r){
+  var s = document.getElementById("status");
+  if (r.ok && r.data.user && r.data.user.role === "admin"){
+    isAdmin = true;
+    s.textContent = "Logged in as administrator.";
+  } else {
+    s.innerHTML = 'You must log in as administrator first. <a href="/">Open the site</a>, log in, then come back to this page.';
+  }
+  showList();
+});
+
+document.getElementById("file").addEventListener("change", function(e){
+  var f = e.target.files[0];
+  if (!f) return;
+  var reader = new FileReader();
+  reader.onload = function(){
+    var data = parseCsv(String(reader.result));
+    var head = data.shift() || [];
+    var idx = {};
+    head.forEach(function(h, i){ idx[h.trim()] = i; });
+    if (idx.name_am === undefined){
+      log("The file does not have the expected columns (name_am, name_en).");
+      return;
+    }
+    var seen = {};
+    sectors = [];
+    data.forEach(function(r){
+      var am = (r[idx.name_am] || "").trim();
+      var en = idx.name_en === undefined ? "" : (r[idx.name_en] || "").trim();
+      var name = en ? am + " - " + en : am;
+      if (name && !seen[name]){ seen[name] = true; sectors.push(name); }
+    });
+    log("Read " + sectors.length + " sectors from the file. Tap Import.");
+    showList();
+  };
+  reader.readAsText(f, "utf-8");
+});
+
+document.getElementById("go").addEventListener("click", async function(){
+  var btn = this; btn.disabled = true;
+  var res = await api("GET", "/api/sectors");
+  var have = {};
+  ((res.data && res.data.items) || []).forEach(function(s){ have[s.name] = true; });
+  var added = 0, skipped = 0, failed = 0;
+  for (var i = 0; i < sectors.length; i++){
+    var name = sectors[i];
+    if (have[name]){ skipped++; continue; }
+    var r = await api("POST", "/api/sectors", {name: name});
+    if (r.ok){ added++; }
+    else { failed++; log("Failed: " + name + " - " + ((r.data && r.data.error) || r.status)); }
+  }
+  log("Done. Added: " + added + ", already there: " + skipped + ", failed: " + failed + ".");
+  log("Check Setup → Sectors in the app.");
+  btn.disabled = false;
+});
+</script>
+</body>
+</html>

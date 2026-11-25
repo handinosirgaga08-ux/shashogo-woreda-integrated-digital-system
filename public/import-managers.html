@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import kebele managers</title>
+<style>
+body{font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:16px;background:#f4f6f8;color:#1b2a3a}
+.card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+button{background:#1565a8;color:#fff;border:0;border-radius:8px;padding:12px 18px;font-size:16px;margin-top:12px}
+button:disabled{opacity:.5}
+#log{white-space:pre-wrap;font-size:13px;margin-top:14px;max-height:50vh;overflow:auto}
+</style>
+</head>
+<body>
+<div class="card">
+<h2>Import kebele managers</h2>
+<p id="status">Checking login...</p>
+<p>Choose the file <b>kebele_managers.csv</b> (columns: name_am, name_en, kebele_am, kebele_en, phone).</p>
+<input type="file" id="file" accept=".csv,text/csv">
+<div><button id="go" disabled>Import</button></div>
+<div id="log"></div>
+</div>
+<script>
+var rows = [];
+var logEl = document.getElementById("log");
+function log(t){ logEl.textContent += t + "\n"; logEl.scrollTop = logEl.scrollHeight; }
+
+function parseCsv(text){
+  text = text.replace(/^\uFEFF/, "");
+  var out = [], row = [], cell = "", q = false;
+  for (var i = 0; i < text.length; i++){
+    var c = text[i];
+    if (q){
+      if (c === '"' && text[i+1] === '"'){ cell += '"'; i++; }
+      else if (c === '"'){ q = false; }
+      else cell += c;
+    } else if (c === '"'){ q = true; }
+    else if (c === ","){ row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r"){
+      if (c === "\r" && text[i+1] === "\n") i++;
+      row.push(cell); cell = "";
+      if (row.some(function(x){ return x.trim() !== ""; })) out.push(row);
+      row = [];
+    } else cell += c;
+  }
+  row.push(cell);
+  if (row.some(function(x){ return x.trim() !== ""; })) out.push(row);
+  return out;
+}
+
+function api(method, url, body){
+  return fetch(url, {
+    method: method,
+    headers: {"Content-Type": "application/json"},
+    body: body ? JSON.stringify(body) : undefined,
+    credentials: "same-origin"
+  }).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(j){ return {ok: r.ok, status: r.status, data: j}; });
+  });
+}
+
+var isAdmin = false;
+api("GET", "/api/me").then(function(r){
+  var s = document.getElementById("status");
+  if (r.ok && r.data.user && r.data.user.role === "admin"){
+    isAdmin = true;
+    s.textContent = "Logged in as administrator.";
+  } else {
+    s.innerHTML = 'You must log in as administrator first. <a href="/">Open the site</a>, log in, then come back to this page.';
+  }
+  refresh();
+});
+
+function refresh(){ document.getElementById("go").disabled = !(isAdmin && rows.length); }
+
+document.getElementById("file").addEventListener("change", function(e){
+  var f = e.target.files[0];
+  if (!f) return;
+  var reader = new FileReader();
+  reader.onload = function(){
+    var data = parseCsv(String(reader.result));
+    var head = data.shift() || [];
+    var idx = {};
+    head.forEach(function(h, i){ idx[h.trim()] = i; });
+    if (idx.name_am === undefined || idx.kebele_am === undefined || idx.phone === undefined){
+      log("The file does not have the expected columns.");
+      rows = [];
+    } else {
+      rows = data.map(function(r){
+        function g(k){ return idx[k] === undefined ? "" : (r[idx[k]] || "").trim(); }
+        var name = g("name_en") ? g("name_am") + " - " + g("name_en") : g("name_am");
+        var kebele = g("kebele_en") ? g("kebele_am") + " - " + g("kebele_en") : g("kebele_am");
+        return {name: name, kebele: kebele, phone: g("phone")};
+      });
+      log("Read " + rows.length + " rows. Tap Import.");
+    }
+    refresh();
+  };
+  reader.readAsText(f, "utf-8");
+});
+
+document.getElementById("go").addEventListener("click", async function(){
+  var btn = this; btn.disabled = true;
+  var kRes = await api("GET", "/api/kebeles");
+  var haveK = {};
+  ((kRes.data && kRes.data.items) || []).forEach(function(k){ haveK[k.name] = true; });
+  var wantK = [];
+  rows.forEach(function(r){ if (r.kebele && !haveK[r.kebele] && wantK.indexOf(r.kebele) < 0) wantK.push(r.kebele); });
+  var kOk = 0;
+  for (var i = 0; i < wantK.length; i++){
+    var kr = await api("POST", "/api/kebeles", {name: wantK[i]});
+    if (kr.ok) kOk++; else log("Kebele failed: " + wantK[i] + " - " + ((kr.data && kr.data.error) || kr.status));
+  }
+  log("Kebeles added: " + kOk);
+
+  var rRes = await api("GET", "/api/records?limit=500");
+  var haveR = {};
+  ((rRes.data && rRes.data.records) || []).forEach(function(x){ haveR[x.name] = true; });
+  var added = 0, skipped = 0, failed = 0;
+  for (var j = 0; j < rows.length; j++){
+    var r = rows[j];
+    if (haveR[r.name]){ skipped++; continue; }
+    var res = await api("POST", "/api/records", {
+      name: r.name, category: "Kebele Manager", kebele: r.kebele,
+      phone: r.phone, status: "Active", jobRole: "Kebele Manager"
+    });
+    if (res.ok){ added++; haveR[r.name] = true; }
+    else { failed++; log("Failed: " + r.name + " - " + ((res.data && res.data.error) || res.status)); }
+  }
+  log("Done. Records added: " + added + ", skipped (already there): " + skipped + ", failed: " + failed);
+});
+</script>
+</body>
+</html>

@@ -1,6 +1,11 @@
 User-agent: *
 Allow: /
 Disallow: /admin
+Disallow: /admin_panel.html
 Disallow: /api/
+Disallow: /import-managers
+Disallow: /import-sectors
+Disallow: /citizen-inbox
+Disallow: /periodic
 
 Sitemap: https://shashogo.gov.et/sitemap.xml
